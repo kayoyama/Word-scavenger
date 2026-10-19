@@ -1,0 +1,290 @@
+/*
+ * Word Scavenger — Style 2: Electric Blue + Gold
+ * Additive theme overrides only. Does not change layout or gameplay.
+ * Activated by body.theme-style2; tile-flip animation rules remain untouched.
+ */
+body.theme-style2 {
+  --ocean: #0878F9;
+  --ocean-dark: #102B55;
+  --salmon: #F5F8FF;
+  --tile-text: #102B55;
+  --panel: #F5F8FF;
+  --ink: #102B55;
+  --muted: #536B89;
+  background: radial-gradient(circle at 20% 10%, #19D9F2 0, #0878F9 38%, #102B55 100%);
+  color: #F5F8FF;
+}
+
+body.theme-style2 .front-screen {
+  background: radial-gradient(ellipse at top, #19D9F2 0%, #0878F9 48%, #102B55 100%);
+}
+body.theme-style2 .brand-mark {
+  background: #FFC52E;
+  color: #102B55;
+  box-shadow: 0 8px 0 rgba(0, 28, 82, .24), 0 0 22px rgba(255, 197, 46, .22);
+}
+body.theme-style2 .brand h1 {
+  text-shadow: 0 3px 0 rgba(16, 43, 85, .25), 0 0 28px rgba(245, 248, 255, .28);
+}
+body.theme-style2 .brand p,
+body.theme-style2 .menu-note,
+body.theme-style2 .panel-label,
+body.theme-style2 .personal-best-panel > span:last-child {
+  color: #E7F9FF;
+}
+body.theme-style2 .menu-button {
+  border-color: rgba(245, 248, 255, .82);
+  box-shadow: 0 4px 0 rgba(16, 43, 85, .18);
+}
+body.theme-style2 .menu-button.primary {
+  background: #FFC52E;
+  border-color: #FFC52E;
+  color: #102B55;
+}
+body.theme-style2 .classic-mode-card {
+  border-color: rgba(245, 248, 255, .4);
+  background: rgba(16, 43, 85, .62);
+}
+body.theme-style2 .classic-mode-card div {
+  background: rgba(8, 120, 249, .25);
+}
+body.theme-style2 .classic-mode-card span {
+  color: #DFFBFF;
+}
+body.theme-style2 .classic-mode-card strong {
+  color: #FFC52E;
+}
+body.theme-style2 .personal-best-panel {
+  border-color: rgba(245, 248, 255, .34);
+  background: rgba(16, 43, 85, .38);
+}
+body.theme-style2 .game-screen {
+  background: radial-gradient(ellipse at 50% 0%, #0878F9 0%, #0759B8 52%, #102B55 100%);
+}
+body.theme-style2 .small-button {
+  border-color: rgba(245, 248, 255, .72);
+  color: #F5F8FF;
+  background: rgba(16, 43, 85, .28);
+}
+body.theme-style2 .timer-block span,
+body.theme-style2 .score-block span {
+  color: #DFFBFF;
+}
+body.theme-style2 .word-feedback {
+  color: #DFFBFF;
+}
+body.theme-style2 .board {
+  background: #102B55;
+  box-shadow: 0 8px 0 rgba(5, 30, 73, .45), 0 0 0 1px rgba(25, 217, 242, .38);
+}
+body.theme-style2 .tile {
+  background: #F5F8FF;
+  color: #102B55;
+  text-shadow: none;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.95), inset 0 -5px 0 rgba(16,43,85,.10), 0 3px 0 rgba(0,43,100,.32);
+}
+body.theme-style2 .tile::before {
+  background: linear-gradient(180deg, rgba(255,255,255,.5), transparent);
+}
+body.theme-style2 .tile.selected {
+  background: #0878F9 !important;
+  color: #FFFFFF !important;
+  box-shadow: inset 0 0 0 2px #19D9F2, 0 0 16px rgba(25,217,242,.45);
+}
+body.theme-style2 .tile.preview-valid {
+  outline-color: #38D996;
+}
+body.theme-style2 .tile.bonus-2ls {
+  background: #BDEEFF;
+}
+body.theme-style2 .tile.bonus-3ls {
+  background: #7C4DFF;
+  color: #FFFFFF;
+  box-shadow: inset 0 0 0 2px #CBB7FF, inset 0 -5px 0 rgba(16,43,85,.18), 0 3px 0 rgba(0,43,100,.32);
+}
+body.theme-style2 .tile.bonus-2ws {
+  background: #FFC52E;
+  color: #102B55;
+}
+body.theme-style2 .tile.bonus-3ws {
+  background: #FF6B6B;
+  color: #FFFFFF;
+}
+body.theme-style2 .selection-trace-glow {
+  stroke: rgba(25, 217, 242, .52);
+  filter: drop-shadow(0 0 8px rgba(25, 217, 242, .9));
+}
+body.theme-style2 .selection-trace-line {
+  stroke: #F5F8FF;
+}
+body.theme-style2 .selection-trace-head {
+  fill: #FFC52E;
+  stroke: #F5F8FF;
+  filter: drop-shadow(0 0 7px rgba(255, 197, 46, .9));
+}
+body.theme-style2 .last-score-line {
+  color: #DFFBFF;
+}
+body.theme-style2 .last-score-line strong {
+  color: #F5F8FF;
+}
+body.theme-style2 .last-points,
+body.theme-style2 .time-bonus,
+body.theme-style2 .timer-bonus-pulse,
+body.theme-style2 .score-gain {
+  color: #FFC52E !important;
+}
+body.theme-style2 .bonus-legend {
+  color: #DFFBFF;
+}
+body.theme-style2 .legend-tile.bonus-2ls { background: #BDEEFF; }
+body.theme-style2 .legend-tile.bonus-3ls { background: #7C4DFF; border: 1px solid #CBB7FF; }
+body.theme-style2 .legend-tile.bonus-2ws { background: #FFC52E; }
+body.theme-style2 .legend-tile.bonus-3ws { background: #FF6B6B; }
+body.theme-style2 .tile.bonus-hit {
+  outline-color: #FFC52E;
+  box-shadow: 0 0 0 3px rgba(255,197,46,.35), 0 0 20px rgba(255,197,46,.9), inset 0 -4px 0 rgba(0,0,0,.08);
+}
+body.theme-style2 .tile.bonus-hit::after {
+  background: #102B55;
+  color: #FFC52E;
+}
+body.theme-style2 .score-gain.amplifier-burst {
+  color: #FFF4BD !important;
+  text-shadow: 0 0 5px #FFC52E, 0 0 12px #FF8A00;
+}
+body.theme-style2 .score-gain.combo-burst {
+  color: #BDFBFF !important;
+  text-shadow: 0 0 5px #19D9F2, 0 0 13px #0878F9;
+}
+body.theme-style2 .score-gain.amplifier-burst.combo-burst {
+  color: #FFF4BD !important;
+  text-shadow: 0 0 6px #FFC52E, 0 0 13px #FF8A00, 0 0 20px #19D9F2;
+}
+body.theme-style2 .game-over-overlay,
+body.theme-style2 .modal-overlay,
+body.theme-style2 .countdown-overlay {
+  background: rgba(16, 43, 85, .82);
+}
+body.theme-style2 .game-over-card,
+body.theme-style2 .tutorial-card {
+  background: #F5F8FF;
+  color: #102B55;
+  border: 1px solid rgba(25, 217, 242, .35);
+}
+body.theme-style2 .game-over-card .eyebrow,
+body.theme-style2 .tutorial-card .eyebrow,
+body.theme-style2 .round-breakdown h3 {
+  color: #0878F9;
+}
+body.theme-style2 .game-over-card p,
+body.theme-style2 .tutorial-steps li {
+  color: #536B89;
+}
+body.theme-style2 .game-over-actions .menu-button:not(.primary),
+body.theme-style2 .tutorial-card .menu-button:not(.primary) {
+  border-color: #A9C7E8;
+  color: #102B55;
+}
+body.theme-style2 .countdown-overlay strong {
+  color: #FFC52E;
+  text-shadow: 0 8px 0 rgba(16,43,85,.35), 0 0 28px rgba(255,197,46,.28);
+}
+body.theme-style2 .stats-screen {
+  background: #EAF5FF;
+  color: #102B55;
+}
+body.theme-style2 .screen-header .small-button {
+  color: #0878F9;
+  border-color: #BBD7F4;
+  background: #FFFFFF;
+}
+body.theme-style2 .stat-card,
+body.theme-style2 .record-card,
+body.theme-style2 .word-stats,
+body.theme-style2 .round-history {
+  border-color: #C9E0F6;
+}
+body.theme-style2 .stat-card strong,
+body.theme-style2 .word-stat-row strong,
+body.theme-style2 .record-card strong,
+body.theme-style2 .history-word-count {
+  color: #0878F9;
+}
+body.theme-style2 .word-stat-row:nth-child(even),
+body.theme-style2 .history-row:nth-child(even) {
+  background: #F2F8FF;
+}
+body.theme-style2 .personal-best-comparison {
+  background: #DDF5FF;
+  color: #174E80 !important;
+}
+body.theme-style2 .round-breakdown {
+  border-color: #C9E0F6;
+  background: linear-gradient(135deg, #FFFFFF, #EAF5FF);
+}
+body.theme-style2 .round-breakdown div + div {
+  border-color: #D7EAF8;
+}
+body.theme-style2 .result-milestones {
+  background: #FFF2C4;
+  color: #6B4B00 !important;
+}
+body.theme-style2 .achievement-card.achievement-unlocked {
+  border-color: #FFC52E;
+  background: linear-gradient(135deg, #FFFDF4, #FFF2C4);
+}
+body.theme-style2 .achievement-unlocked .achievement-icon {
+  color: #C58A00;
+}
+
+/* The switch is a fixed overlay so it does not reflow or resize game content. */
+#word-scavenger-theme-toggle {
+  position: fixed;
+  right: max(10px, env(safe-area-inset-right));
+  bottom: max(10px, env(safe-area-inset-bottom));
+  z-index: 1000;
+  min-height: 34px;
+  padding: 7px 11px;
+  border: 1px solid rgba(255,255,255,.72);
+  border-radius: 999px;
+  background: rgba(16, 43, 85, .92);
+  color: #F5F8FF;
+  font: 700 12px/1.1 Calibri, Verdana, Arial, sans-serif;
+  box-shadow: 0 3px 12px rgba(0,0,0,.22);
+  -webkit-user-select: none;
+  user-select: none;
+}
+body.theme-style2 #word-scavenger-theme-toggle {
+  border-color: #FFC52E;
+  background: #FFC52E;
+  color: #102B55;
+}
+
+/* Long Word Bonus transformation — Style 2 electric-blue / gold treatment. */
+body.theme-style2 .tile.long-word-bonus-transform {
+  z-index: 3;
+  outline: 2px solid #FFC52E;
+  outline-offset: -3px;
+  box-shadow: 0 0 0 2px rgba(255,197,46,.30), 0 0 17px rgba(25,217,242,.82), inset 0 0 12px rgba(255,197,46,.24);
+  animation: style2-long-bonus-transform .62s ease-in-out both;
+}
+@keyframes style2-long-bonus-transform {
+  0% { transform: scale(.94); filter: brightness(1); }
+  35% { transform: scale(1.08); filter: brightness(1.65); }
+  70% { transform: scale(1.02); filter: brightness(1.3); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.theme-style2 .tile.long-word-bonus-transform { animation-duration: .01ms; }
+}
+
+/* Style 2 board-action controls: preserve Electric Blue + Gold identity. */
+body.theme-style2 .board-action { background: rgba(16, 43, 85, .92); border-color: rgba(25,217,242,.78); color: #F5F8FF; }
+body.theme-style2 .board-action .action-symbol, body.theme-style2 .board-action .action-count { color: #19D9F2; }
+body.theme-style2 .board-action .action-count { border-color: rgba(25,217,242,.7); }
+body.theme-style2 .board-action.randomize-action { border-color: rgba(255,197,46,.82); }
+body.theme-style2 .board-action.randomize-action .action-symbol, body.theme-style2 .board-action.randomize-action .action-count { color: #FFC52E; }
+body.theme-style2 .board-action.randomize-action .action-count { border-color: rgba(255,197,46,.75); }
+body.theme-style2 .board-action .action-copy small { color: #DFFBFF; }
+body.theme-style2 .board-action.action-armed { outline-color: #FFC52E; }
