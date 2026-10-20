@@ -1,0 +1,23 @@
+Word Scavenger — Rotate/Randomize interaction fix
+
+Changes
+- Rotate and Randomize buttons now disable whenever the board is in an action animation or any tile lock is active, including ordinary tile refills and Long Word Bonus transformations.
+- Board pointer interaction is blocked while those locks/animations are active, then restored when the final lock clears.
+- Rotate now pauses the round countdown for the duration of its five-batch flip animation and resumes it afterward if the timer was running.
+- Existing clockwise 5x5 mapping, tile objects/bonus metadata, charge rules, and tile-flip animation were preserved.
+- Randomize continues to reuse the existing short tile-flip animation; the selected tile's bonus type/color remains unchanged.
+
+Validation
+- JavaScript syntax checks: passed for js/game.js and js/theme-toggle.js.
+- ZIP integrity: checked after packaging.
+- Clockwise mapping: checked against a labeled 5x5 matrix.
+- Browser interaction test: not completed. Headless Chromium did not finish loading the local game within the test timeout, so no claim is made that full interactive browser behavior passed.
+
+
+2026-10-20 Rebalancing update
+- Main timer cap increased to 200 seconds; base round remains 120 seconds.
+- Updated bonus-tile time rewards and added additive Word Amplifier time rewards by word length.
+- Word Amplifier multipliers now vary by exact word length: 3×1.0, 4×1.25, 5×1.5, 6×1.75, 7+×2.0.
+- Chrono Combo now starts at 7 seconds and caps at 20 seconds; score progression unchanged.
+- Bonus bag fixed to 500 entries: NO 350, 2LS 50, 3LS 40, 2WS 35, 3WS 25.
+- Stored action caps increased to 10 Rotate charges and 5 Randomize charges; each Randomize use consumes one charge.

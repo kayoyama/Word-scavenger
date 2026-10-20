@@ -398,3 +398,53 @@ button:focus-visible { outline: 3px solid #ffe66d; outline-offset: 3px; }
 .board.board-actions-locked { pointer-events: none; }
 .tile.action-tile-flip { pointer-events: none; }
 @media (max-width: 380px) { .board-actions { gap: 6px; } .board-action { gap: 5px; padding: 8px 6px; } .board-action .action-symbol { font-size: 22px; } .board-action .action-copy strong { font-size: 10px; } .board-action .action-copy small { font-size: 8px; } .board-action .action-count { padding: 3px 4px; font-size: 10px; } }
+
+
+/* Board actions: rotate the board while counter-rotating tiles; no tile flips. */
+.board.board-rotate-spin {
+  transform-origin: 50% 50%;
+  animation: board-action-clockwise 400ms cubic-bezier(.22,.72,.28,1) both;
+  will-change: transform;
+}
+@keyframes board-action-clockwise {
+0% { transform: rotate(0deg) scale(1); }
+35% { transform: rotate(32deg) scale(.90); }
+72% { transform: rotate(65deg) scale(.95); }
+100% { transform: rotate(90deg) scale(1); }
+}
+.tile.action-rotate-counter {
+  animation: board-action-counter-clockwise 400ms cubic-bezier(.22,.72,.28,1) both;
+  will-change: transform;
+}
+@keyframes board-action-counter-clockwise {
+0% { transform: rotate(0deg) scale(1); }
+35% { transform: rotate(-32deg) scale(.90); }
+72% { transform: rotate(-65deg) scale(.95); }
+100% { transform: rotate(-90deg) scale(1); }
+}
+
+/* Keep the center tile independent from the rotating board transform. */
+.tile.rotate-center-hidden { visibility: hidden !important; }
+.rotate-center-overlay {
+  position: absolute !important;
+  z-index: 6;
+  display: flex;
+  pointer-events: none !important;
+  animation: none !important;
+  transform: none !important;
+  visibility: visible !important;
+  margin: 0 !important;
+  box-sizing: border-box;
+}
+
+.tile.action-tile-flip { animation-duration: 150ms; }
+@keyframes tile-action-shuffle-flip {
+  0% { transform: perspective(500px) rotateX(0deg) scale(1); filter: brightness(1); }
+  42%, 58% { transform: perspective(500px) rotateX(90deg) scale(.90); filter: brightness(1.45); }
+  100% { transform: perspective(500px) rotateX(0deg) scale(1); filter: brightness(1); }
+}
+.tile.tile-flip.action-tile-flip { animation-name: tile-action-shuffle-flip; animation-duration: 110ms; }
+@media (prefers-reduced-motion: reduce) {
+  .board.board-rotate-spin, .tile.action-rotate-counter { animation-duration: .01ms; }
+  .tile.tile-flip.action-tile-flip { animation-duration: .01ms; }
+}

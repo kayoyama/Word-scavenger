@@ -6,13 +6,13 @@
   'use strict';
 
   const ROUND_SECONDS = 120;
-  const MAX_TIME_SECONDS = 180;
-  const CHRONO_COMBO_WINDOW_MS = 5000;
+  const MAX_TIME_SECONDS = 200;
+  const CHRONO_COMBO_WINDOW_MS = 7000;
+  const CHRONO_COMBO_MAX_SECONDS = 20;
   const SIZE = 5;
-  const WORD_AMPLIFIER_MIN_LENGTH = 5;
-  const WORD_AMPLIFIER_MULTIPLIER = 1.5;
-  const WORD_AMPLIFIER_HIGH_LENGTH = 7;
-  const WORD_AMPLIFIER_HIGH_MULTIPLIER = 2;
+  const ROTATE_CHARGE_CAP = 10;
+  const RANDOMIZE_CHARGE_CAP = 5;
+  const RANDOMIZE_WORDS_PER_CHARGE = 5;
   const STORAGE_KEY = 'wordScavengerBrowserStats';
   const BONUS_CLASSES = {
     NO: '', '2LS': 'bonus-2ls', '3LS': 'bonus-3ls',
@@ -28,6 +28,8 @@
   const selectionTrace = el('selection-trace');
   const boardStage = board ? board.closest('.board-stage') : null;
   let pointerTracePoints = [];
+  let rotateCenterOverlay = null;
+  let rotateCenterOriginal = null;
   const wordlistSet = new Set(Array.isArray(window.wordlist) ? window.wordlist : []);
 
   let tiles = [];
@@ -64,6 +66,7 @@
   let scoreGainTimeout = null;
   let chronoComboLevel = 0;
   let chronoComboDeadline = 0;
+  let chronoComboPausedRemainingMs = null;
   let chronoComboIntervalId = null;
   let chronoComboClearTimeout = null;
   let chronoComboIndicator = null;
@@ -170,17 +173,14 @@
     });
   }
 
-  // Retains the original distribution: 400 NO slots plus 100 bonus slots.
+  // Fixed 500-entry bonus bag, matching the approved distribution exactly.
   function makeBonusBag() {
     bonusBag = [];
-    const noCount = randomInt(400);
-    const remainingNo = 400 - noCount;
-    for (let i = 0; i < noCount; i += 1) bonusBag.push('NO');
-    for (let i = 0; i < 37; i += 1) bonusBag.push('2LS');
-    for (let i = 0; i < 26; i += 1) bonusBag.push('3LS');
-    for (let i = 0; i < 22; i += 1) bonusBag.push('2WS');
-    for (let i = 0; i < 15; i += 1) bonusBag.push('3WS');
-    for (let i = 0; i < remainingNo; i += 1) bonusBag.push('NO');
+    for (let i = 0; i < 350; i += 1) bonusBag.push('NO');
+    for (let i = 0; i < 50; i += 1) bonusBag.push('2LS');
+    for (let i = 0; i < 40; i += 1) bonusBag.push('3LS');
+    for (let i = 0; i < 35; i += 1) bonusBag.push('2WS');
+    for (let i = 0; i < 25; i += 1) bonusBag.push('3WS');
   }
 
   function drawLetter() { return letterBag[randomInt(letterBag.length) - 1]; }
@@ -202,34 +202,50 @@
     const rotateButton = el('rotate-action');
     const randomizeButton = el('randomize-action');
     if (!rotateButton || !randomizeButton) return;
-    el('rotate-count').textContent = `${rotateCharges} / 3`;
-    el('randomize-count').textContent = `${randomizeCharges} / 1`;
-    el('randomize-hint').textContent = randomizeCharges ? 'Choose a tile to change its letter' : `Next charge: ${5 - randomizeWordProgress} correct word${5 - randomizeWordProgress === 1 ? '' : 's'}`;
-    rotateButton.disabled = !roundActive || actionBusy || rotateCharges <= 0;
-    randomizeButton.disabled = !roundActive || actionBusy || (randomizeCharges <= 0 && !randomizeMode);
+    el('rotate-count').textContent = `${rotateCharges} / ${ROTATE_CHARGE_CAP}`;
+    el('randomize-count').textContent = `${randomizeCharges} / ${RANDOMIZE_CHARGE_CAP}`;
+    el('randomize-hint').textContent = randomizeCharges > 0
+      ? (randomizeCharges >= RANDOMIZE_CHARGE_CAP ? 'Storage full · choose a tile' : 'Choose a tile to change its letter')
+      : `Next charge: ${RANDOMIZE_WORDS_PER_CHARGE - randomizeWordProgress} correct word${RANDOMIZE_WORDS_PER_CHARGE - randomizeWordProgress === 1 ? '' : 's'}`;
+    const boardLocked = actionBusy || lockedTileIndices.size > 0;
+    rotateButton.disabled = !roundActive || boardLocked || rotateCharges <= 0;
+    randomizeButton.disabled = !roundActive || boardLocked || (randomizeCharges <= 0 && !randomizeMode);
+    board.classList.toggle('board-actions-locked', boardLocked);
     randomizeButton.classList.toggle('action-armed', randomizeMode);
   }
 
   function grantActionCharges() {
-    rotateCharges = Math.min(3, rotateCharges + 1);
-    if (randomizeCharges === 0) {
+    rotateCharges = Math.min(ROTATE_CHARGE_CAP, rotateCharges + 1);
+    if (randomizeCharges < RANDOMIZE_CHARGE_CAP) {
       randomizeWordProgress += 1;
-      if (randomizeWordProgress >= 5) {
-        randomizeCharges = 1;
+      if (randomizeWordProgress >= RANDOMIZE_WORDS_PER_CHARGE) {
+        randomizeCharges = Math.min(RANDOMIZE_CHARGE_CAP, randomizeCharges + 1);
         randomizeWordProgress = 0;
       }
+    } else {
+      randomizeWordProgress = 0;
     }
     renderActionCharges();
   }
 
   function setActionsBusy(busy) {
     actionBusy = busy;
-    board.classList.toggle('board-actions-locked', busy);
     renderActionCharges();
   }
 
-  // Rotate the complete 5x5 matrix 90 degrees clockwise. Tile objects move intact,
-  // so each letter keeps its original bonus type and color. Five tiles flip per batch.
+  function pauseRoundTimer() {
+    const wasRunning = timerId !== null;
+    if (timerId !== null) window.clearInterval(timerId);
+    timerId = null;
+    return wasRunning;
+  }
+
+  function resumeRoundTimer(wasRunning) {
+    if (wasRunning && roundActive && timerId === null) timerId = window.setInterval(tick, 1000);
+  }
+
+  // Rotate the complete 5x5 matrix 90 degrees clockwise in one 400 ms animation.
+  // Tile objects move intact, preserving each letter's bonus type and color.
   function rotateBoardClockwise() {
     if (!roundActive || actionBusy || rotateCharges <= 0 || lockedTileIndices.size > 0) return;
     rotateCharges -= 1;
@@ -237,7 +253,10 @@
     selectedIndices = [];
     isSelecting = false;
     clearSelectionStyles();
+    const timerWasRunning = pauseRoundTimer();
+    const chronoWasRunning = pauseChronoComboTimer();
     setActionsBusy(true);
+
     const oldTiles = tiles.slice();
     const rotated = new Array(SIZE * SIZE);
     for (let row = 0; row < SIZE; row += 1) {
@@ -245,32 +264,53 @@
         rotated[row * SIZE + col] = oldTiles[(SIZE - 1 - col) * SIZE + row];
       }
     }
+
     const token = refillToken;
-    const batchDelay = 145;
-    const flipDuration = 180;
-    for (let row = 0; row < SIZE; row += 1) {
-      const rowStart = row * SIZE;
-      scheduleRefillTimer(() => {
-        for (let col = 0; col < SIZE; col += 1) {
-          const tile = board.querySelector(`[data-index="${rowStart + col}"]`);
-          if (tile) tile.classList.add('tile-flip', 'action-tile-flip');
-        }
-        scheduleRefillTimer(() => {
-          tiles = rotated;
-          for (let col = 0; col < SIZE; col += 1) updateTileElement(rowStart + col);
-        }, 90, token);
-        scheduleRefillTimer(() => {
-          for (let col = 0; col < SIZE; col += 1) {
-            const tile = board.querySelector(`[data-index="${rowStart + col}"]`);
-            if (tile) tile.classList.remove('tile-flip', 'action-tile-flip');
-          }
-        }, flipDuration, token);
-      }, row * batchDelay, token);
+    const animationDuration = 400;
+    const centerIndex = Math.floor((SIZE * SIZE) / 2);
+
+    // Place a non-interactive visual copy above the grid so the center tile's
+    // border, letter, and bonus color remain completely stationary during rotation.
+    cleanupRotateCenterOverlay();
+    const centerTile = board.querySelector(`[data-index="${centerIndex}"]`);
+    if (centerTile && boardStage) {
+      const tileRect = centerTile.getBoundingClientRect();
+      const stageRect = boardStage.getBoundingClientRect();
+      const overlay = centerTile.cloneNode(true);
+      overlay.classList.remove('action-rotate-counter', 'tile-flip', 'action-tile-flip', 'tile-refill-locked', 'bonus-hit');
+      overlay.classList.add('rotate-center-overlay');
+      overlay.removeAttribute('data-index');
+      overlay.setAttribute('aria-hidden', 'true');
+      overlay.tabIndex = -1;
+      overlay.style.left = `${tileRect.left - stageRect.left}px`;
+      overlay.style.top = `${tileRect.top - stageRect.top}px`;
+      overlay.style.width = `${tileRect.width}px`;
+      overlay.style.height = `${tileRect.height}px`;
+      centerTile.classList.add('rotate-center-hidden');
+      boardStage.appendChild(overlay);
+      rotateCenterOverlay = overlay;
+      rotateCenterOriginal = centerTile;
     }
+
+    board.classList.remove('board-rotate-spin');
+    void board.offsetWidth;
+    board.classList.add('board-rotate-spin');
+
+    // Counter-rotate tile faces while the board moves. Do not mutate the letters
+    // mid-animation: that made the outer tiles appear to change letters in place.
+    board.querySelectorAll('.tile').forEach((tile) => tile.classList.add('action-rotate-counter'));
+
+    // Commit the rotated matrix only when the visual rotation finishes.
     scheduleRefillTimer(() => {
       tiles = rotated;
+      for (let index = 0; index < tiles.length; index += 1) updateTileElement(index);
+      board.querySelectorAll('.action-rotate-counter').forEach((tile) => tile.classList.remove('action-rotate-counter'));
+      board.classList.remove('board-rotate-spin');
+      cleanupRotateCenterOverlay();
       setActionsBusy(false);
-    }, (SIZE - 1) * batchDelay + flipDuration + 10, token);
+      resumeRoundTimer(timerWasRunning);
+      resumeChronoComboTimer(chronoWasRunning);
+    }, animationDuration, token);
     renderActionCharges();
   }
 
@@ -287,30 +327,51 @@
   function randomizeTileLetter(index) {
     if (!randomizeMode || !roundActive || actionBusy || randomizeCharges <= 0 || index < 0 || index >= tiles.length || lockedTileIndices.size > 0) return false;
     randomizeMode = false;
-    randomizeCharges = 0;
+    randomizeCharges -= 1;
     randomizeWordProgress = 0;
+    const timerWasRunning = pauseRoundTimer();
+    const chronoWasRunning = pauseChronoComboTimer();
     setActionsBusy(true);
     const token = refillToken;
-    const tileElement = board.querySelector(`[data-index="${index}"]`);
-    if (tileElement) tileElement.classList.add('tile-flip', 'action-tile-flip');
-    scheduleRefillTimer(() => {
-      const oldLetter = tiles[index].letter;
-      let newLetter = drawLetter();
+    const flipDuration = 110;
+    const flipCount = 3;
+    const pickDifferentLetter = (oldLetter) => {
+      let nextLetter = drawLetter();
       if (letterBag.length > 1) {
         let attempts = 0;
-        while (newLetter === oldLetter && attempts < 8) { newLetter = drawLetter(); attempts += 1; }
+        while (nextLetter === oldLetter && attempts < 8) { nextLetter = drawLetter(); attempts += 1; }
       }
-      tiles[index] = { letter: newLetter, bonus: tiles[index].bonus };
-      updateTileElement(index);
-      const updated = board.querySelector(`[data-index="${index}"]`);
-      if (updated) updated.classList.add('tile-flip', 'action-tile-flip');
-    }, 90, token);
+      return nextLetter;
+    };
+
+    // Three quick flips make the letter shuffle visible without a separate animation system.
+    for (let flip = 0; flip < flipCount; flip += 1) {
+      scheduleRefillTimer(() => {
+        const tile = board.querySelector(`[data-index="${index}"]`);
+        if (tile) {
+          tile.classList.remove('tile-flip', 'action-tile-flip');
+          void tile.offsetWidth;
+          tile.classList.add('tile-flip', 'action-tile-flip');
+        }
+        scheduleRefillTimer(() => {
+          const current = tiles[index];
+          if (!current) return;
+          // Keep bonus metadata (and therefore its theme-specific color) unchanged.
+          tiles[index] = { ...current, letter: pickDifferentLetter(current.letter) };
+          updateTileElement(index);
+          const updated = board.querySelector(`[data-index="${index}"]`);
+          if (updated) updated.classList.add('tile-flip', 'action-tile-flip');
+        }, Math.round(flipDuration / 2), token);
+      }, flip * flipDuration, token);
+    }
     scheduleRefillTimer(() => {
       const updated = board.querySelector(`[data-index="${index}"]`);
       if (updated) updated.classList.remove('tile-flip', 'action-tile-flip');
       setActionsBusy(false);
+      resumeRoundTimer(timerWasRunning);
+      resumeChronoComboTimer(chronoWasRunning);
       el('word-feedback').textContent = 'Drag across letters to select them';
-    }, 200, token);
+    }, flipCount * flipDuration + 10, token);
     renderActionCharges();
     return true;
   }
@@ -344,7 +405,17 @@
     return timer;
   }
 
+  function cleanupRotateCenterOverlay() {
+    if (rotateCenterOverlay) rotateCenterOverlay.remove();
+    if (rotateCenterOriginal) rotateCenterOriginal.classList.remove('rotate-center-hidden');
+    rotateCenterOverlay = null;
+    rotateCenterOriginal = null;
+  }
+
   function cancelRefillSequence() {
+    cleanupRotateCenterOverlay();
+    board.classList.remove('board-rotate-spin');
+    board.querySelectorAll('.action-rotate-counter').forEach((tile) => tile.classList.remove('action-rotate-counter'));
     refillToken += 1;
     refillTimers.forEach((timer) => window.clearTimeout(timer));
     refillTimers.clear();
@@ -352,6 +423,7 @@
       tile.classList.remove('tile-flip', 'tile-refill-locked', 'bonus-hit');
     });
     lockedTileIndices.clear();
+    renderActionCharges();
   }
 
   // Each consumed tile stays locked until its own flip finishes. Other tiles
@@ -368,6 +440,7 @@
         const tileElement = board.querySelector(`[data-index="${index}"]`);
         if (!tileElement) {
           lockedTileIndices.delete(index);
+          renderActionCharges();
           return;
         }
         tileElement.classList.add('tile-flip');
@@ -384,6 +457,7 @@
           const finishedElement = board.querySelector(`[data-index="${index}"]`);
           if (finishedElement) finishedElement.classList.remove('tile-flip', 'tile-refill-locked');
           lockedTileIndices.delete(index);
+          renderActionCharges();
         }, flipDurationMs, token);
       }, startDelay, token);
     });
@@ -454,10 +528,12 @@
     const tileElement = board.querySelector(`[data-index="${index}"]`);
     if (!tileElement) return false;
     lockedTileIndices.add(index);
+    renderActionCharges();
     tileElement.classList.add('long-word-bonus-transform', 'tile-refill-locked');
     scheduleRefillTimer(() => {
       if (!tiles[index] || tiles[index].bonus !== 'NO') {
         lockedTileIndices.delete(index);
+        renderActionCharges();
         return;
       }
       tiles[index].bonus = bonusType;
@@ -469,6 +545,7 @@
       const updatedElement = board.querySelector(`[data-index="${index}"]`);
       if (updatedElement) updatedElement.classList.remove('long-word-bonus-transform', 'tile-refill-locked');
       lockedTileIndices.delete(index);
+      renderActionCharges();
     }, 620, refillToken);
     return true;
   }
@@ -574,9 +651,10 @@
 
   // Every valid word earns 2 seconds. Bonus tiles add extra time by type.
   function awardTimeBonus(indices) {
-    const bonusSeconds = { NO: 0, '2LS': 1, '3LS': 2, '2WS': 2, '3WS': 3 };
+    const bonusSeconds = { NO: 0, '2LS': 2, '3LS': 3, '2WS': 2, '3WS': 3 };
     const extra = indices.reduce((sum, index) => sum + (bonusSeconds[tiles[index].bonus] || 0), 0);
-    const requested = 2 + extra;
+    const amplifierSeconds = [0, 0, 0, 0, 5, 10, 15, 20][Math.min(indices.length, 7)] || 0;
+    const requested = 2 + extra + amplifierSeconds;
     const added = Math.max(0, Math.min(requested, MAX_TIME_SECONDS - secondsLeft));
     secondsLeft += added;
     sessionTimeBonus += added;
@@ -610,6 +688,29 @@
     }
   }
 
+  // Freeze the Chrono Combo deadline during an action animation, preserving its remaining time.
+  function pauseChronoComboTimer() {
+    if (chronoComboPausedRemainingMs !== null) return true;
+    if (chronoComboLevel <= 0) return false;
+    const remainingMs = chronoComboDeadline - Date.now();
+    if (remainingMs <= 0) {
+      expireChronoCombo();
+      return false;
+    }
+    chronoComboPausedRemainingMs = remainingMs;
+    stopChronoComboTicker();
+    return true;
+  }
+
+  function resumeChronoComboTimer(wasRunning) {
+    if (!wasRunning || chronoComboPausedRemainingMs === null || !roundActive || chronoComboLevel <= 0) return;
+    chronoComboDeadline = Date.now() + chronoComboPausedRemainingMs;
+    chronoComboPausedRemainingMs = null;
+    renderChronoCombo();
+    stopChronoComboTicker();
+    chronoComboIntervalId = window.setInterval(renderChronoCombo, 100);
+  }
+
   function hideChronoCombo() {
     stopChronoComboTicker();
     if (chronoComboClearTimeout !== null) {
@@ -618,6 +719,7 @@
     }
     chronoComboLevel = 0;
     chronoComboDeadline = 0;
+    chronoComboPausedRemainingMs = null;
     updateChronoFrame(0);
     if (chronoComboIndicator) {
       chronoComboIndicator.hidden = true;
@@ -630,6 +732,7 @@
     stopChronoComboTicker();
     chronoComboLevel = 0;
     chronoComboDeadline = 0;
+    chronoComboPausedRemainingMs = null;
     updateChronoFrame(0);
     if (!chronoComboIndicator) return;
     chronoComboIndicator.hidden = false;
@@ -694,14 +797,14 @@
     else if (chronoComboLevel === 3) { requestedReward = 4; rewardPoints = 300; }
     else if (chronoComboLevel >= 4) { requestedReward = 5; rewardPoints = 500; }
 
-    // First valid word starts a 5-second combo window.
+    // First valid word starts a 7-second combo window.
     // For consecutive words, add only the listed reward to the time remaining;
-    // do not reset to 5 seconds first. Cap the combo countdown at 10 seconds.
+    // do not reset the countdown first. Cap the combo countdown at 20 seconds.
     // Chrono Combo must never modify the main round timer.
     if (!comboIsActive) {
       chronoComboDeadline = now + CHRONO_COMBO_WINDOW_MS;
     } else {
-      const cappedDeadline = now + 10000;
+      const cappedDeadline = now + (CHRONO_COMBO_MAX_SECONDS * 1000);
       chronoComboDeadline = Math.min(
         cappedDeadline,
         chronoComboDeadline + (requestedReward * 1000)
@@ -716,14 +819,14 @@
       rewardSeconds: requestedReward,
       requestedReward,
       rewardPoints,
-      secondsRemaining: Math.min(10, Math.max(0, Math.ceil((chronoComboDeadline - now) / 1000)))
+      secondsRemaining: Math.min(CHRONO_COMBO_MAX_SECONDS, Math.max(0, Math.ceil((chronoComboDeadline - now) / 1000)))
     };
   }
 
   const ACHIEVEMENTS = {
     amplifier: { title: 'Elder Tongue', detail: 'Find a 7-letter word for a ×2 Amplifier.' },
     combo4: { title: 'Momentum', detail: 'Reach a four-word Chrono Combo.' },
-    chronoCap: { title: 'Timekeeper', detail: 'Fill the Chrono Combo timer to 10 seconds.' }
+    chronoCap: { title: 'Timekeeper', detail: 'Fill the Chrono Combo timer to 20 seconds.' }
   };
 
   function unlockAchievement(id) {
@@ -876,7 +979,8 @@
   }
 
   function amplifierLabel(multiplier) {
-    return multiplier >= 2 ? 'WORD AMPLIFIER ×2' : (multiplier > 1 ? 'WORD AMPLIFIER ×1.5' : '');
+    if (multiplier <= 1) return '';
+    return `WORD AMPLIFIER ×${multiplier.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')}`;
   }
 
   function scoreWord(indices) {
@@ -893,9 +997,10 @@
       base += (LETTER_POINTS[letterIndex] || 0) * letterMultiplier;
     });
     const baseTotal = base * wordMultiplier;
-    const amplifierMultiplier = indices.length >= WORD_AMPLIFIER_HIGH_LENGTH
-      ? WORD_AMPLIFIER_HIGH_MULTIPLIER
-      : (indices.length >= WORD_AMPLIFIER_MIN_LENGTH ? WORD_AMPLIFIER_MULTIPLIER : 1);
+    const amplifierMultiplier = indices.length >= 7 ? 2
+      : (indices.length === 6 ? 1.75
+        : (indices.length === 5 ? 1.5
+          : (indices.length === 4 ? 1.25 : 1)));
     const total = Math.round(baseTotal * amplifierMultiplier);
     return {
       base,
@@ -982,7 +1087,7 @@
     sessionHighestCombo = Math.max(sessionHighestCombo, comboResult.level);
     if (result.amplifierMultiplier >= 2) unlockAchievement('amplifier');
     if (comboResult.level >= 4) unlockAchievement('combo4');
-    if (comboResult.secondsRemaining >= 10) unlockAchievement('chronoCap');
+    if (comboResult.secondsRemaining >= CHRONO_COMBO_MAX_SECONDS) unlockAchievement('chronoCap');
     if (word.length > sessionLongestWord.length) sessionLongestWord = word;
     if (wordAndComboScore > sessionHighestWordScore) {
       sessionHighestWord = word;
@@ -1027,6 +1132,7 @@
       const lockedTile = board.querySelector(`[data-index="${index}"]`);
       if (lockedTile) lockedTile.classList.add('tile-refill-locked');
     });
+    renderActionCharges();
     // Briefly spotlight bonus tiles that contributed to this word before refilling them.
     usedIndices.forEach((index) => {
       const usedTile = board.querySelector(`[data-index="${index}"]`);

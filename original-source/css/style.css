@@ -1,0 +1,234 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+     -webkit-touch-callout: none;
+     -webkit-user-select: none;
+     -khtml-user-select: none;
+     -moz-user-select: none;
+     -ms-user-select: none;
+     user-select: none;
+    background: #005f85;
+}
+
+h1, h2 {
+    display: inline;
+//    font-size:30px;
+}
+
+div.score{
+    display: inline-block;
+
+}
+
+div.right{
+    position: absolute;
+     right: 5vw;
+}
+div.left{
+    position: absolute;
+     left: 5vw;
+}
+
+div.borderbox{
+    height: 19.2vw;
+    width: 19.2vw;
+    display: inline-block;
+    background: #005f85;
+    text-align: center;
+    line-height: 19.2vw;
+    margin-left: -1px;
+//    margin-top: -4px;
+//   margin: 0 auto;
+   position: relative;
+}
+div.outerbox{
+    height: 19vw;
+    width: 19vw;
+   background: #005f85;
+//display: inline-block;
+//    text-align: center;
+    line-height: 19vw;
+    border-radius: 3vw;
+    position: relative;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+ //   margin: 0 auto;
+//       margin-left: -3px;
+//        margin-top: -3px;
+    }
+
+div.divbox {
+ height: 17vw;
+  width: 17vw;
+  background: LightSalmon;
+  text-align: center;
+  line-height: 17vw;
+  font-size: 14vw;
+  font-weight: bold;
+  font-family: Calibri, Verdana, san-serif;
+  vertical-align: middle;
+ //  margin-left: -2px;
+ //   margin-top: -2px;
+  position: relative;
+  border-radius: 3vw;
+//    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+   text-shadow: .7vw .7vw .7vw #EEEEEE;
+}
+span.zone{
+    
+}
+
+span.divtext{
+    display: inline-block;
+    vertical-align: middle;
+    line-height: normal;
+}
+
+div.container{
+  position: absolute;
+}
+
+canvas.canvas{
+  position: absolute;
+  display: block;
+width:0vw;
+height:0vh;
+  left: 0px;
+  top: 0px;
+  z-index:99999;
+
+}
+
+div.game{
+  position: absolute;
+  width:100vw;	
+  height:100vh;
+  z-index:9;
+}
+
+div.frontclass{
+background:#005f85;
+left: 0px;
+top: 0px;
+  position: absolute;
+  width:100vw;
+  height:100vh;
+  z-index:39999;
+}
+
+div.statclass{
+background:#005f85;
+left: 0px;
+top: 0px;
+  position: absolute;
+  width:100vw;
+  height:100vh;
+  z-index:49999;
+}
+
+div.menu{
+background:yellow;
+position: relative;
+width:50vw;
+text-align: center;
+line-height: 17vw;
+font-size: 5vw;
+border-radius: 3vw;
+}
+div.new{
+top:40vh;
+}
+div.stat{
+top:43vh;
+}
+
+div.hidder{
+position: relative;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:transparent;
+z-index:100;
+position: fixed;
+}
+
+.row-one{
+background:gray;
+font-size: 4vw;
+}
+.row-two{
+background:yellow;
+font-size: 4vw;
+}
+.Sleft{
+    position: relative;
+    left: 2vw;
+    display: inline-block;
+}
+.Sright{
+	position: absolute;
+    right: 2vw;
+    display: inline-block;
+}
+.Scenter{
+position: absolute;
+    display: inline-block;
+    left: 45vw;
+}
+
+//tab
+.tabs {
+  position: relative;
+//  min-height: 1px; /* This part sucks */
+  clear: both;
+  margin: 25px 0;
+}
+.tab {
+  float: left;
+  font-size: 5vw;
+  line-height: 5vw;
+  font-weight: bold;
+  width:33.3333vw;
+  background: #eee;
+  height:10vw;
+  text-align: center;
+}
+.tab label {
+  font-size: 3vw;
+  line-height: 5vw;
+  background: #eee;
+  padding: 3vw 0vw 3vw 0vw;
+//  border: 1px solid #ccc;
+  margin-left: -1px;
+  position: relative;
+  left: 1px;
+}
+.tab [type=radio] {
+  display: none;
+}
+.content {
+  position: absolute;
+  top: 5vh;
+  left: 0;
+  background: white;
+  right: 0;
+  bottom: 0;
+  padding: 20px;
+  border: 1px solid #ccc;
+}
+[type=radio]:checked ~ label {
+  background: white;
+  border-bottom: 1px solid white;
+  z-index: 2;
+}
+
+[type=radio]:checked ~ label ~ .content {
+  z-index: 1;
+}

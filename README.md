@@ -80,15 +80,25 @@ Replacement tiles now flip in a staggered sequence (55 ms between flip starts; 1
 ## Phase 3.2 corrections
 
 - Restored the complete Phase A selectable flip animation CSS and JS from `word_scavenger_phase_a_selectable.zip`. Tiles flip sequentially; currently flipping tiles are unselectable, while stationary tiles remain selectable.
-- Word Amplifier: 3–4 letters ×1.0, 5–6 letters ×1.5, 7+ letters ×2.0.
+- Word Amplifier: 3 letters ×1.0, 4 letters ×1.25, 5 letters ×1.5, 6 letters ×1.75, 7+ letters ×2.0. Timer rewards are additive: +0/+5/+10/+15/+20 seconds for 3/4/5/6/7+ letters.
 - Chrono Combo: second valid word +100 score and +3 seconds to the combo countdown; third +300 score and +4 seconds to the combo countdown; fourth and subsequent +500 score and +5 seconds to the combo countdown. The main round timer is not increased by combo rewards.
 - Each valid word refreshes the five-second combo window, then adds the earned combo seconds to that combo countdown.
 - Existing files, original source, dictionary, and unrelated game behavior are retained.
 
 ## Chrono Combo timer correction
 
-- The first valid word starts a 5-second combo countdown.
+- The first valid word starts a 7-second combo countdown.
 - A consecutive second word adds 3 seconds to the *remaining* combo countdown; the third adds 4 seconds; the fourth and later consecutive words add 5 seconds each.
-- The combo countdown is capped at 10 seconds. It is not reset to 5 seconds before adding a reward.
-- If the combo expires, the next valid word starts a new 5-second window.
+- The combo countdown is capped at 20 seconds. It is not reset before adding a reward.
+- If the combo expires, the next valid word starts a new 7-second window.
 - Chrono Combo rewards never add time to the main round timer.
+
+
+## Rebalancing — 2026-10-20
+
+- Increased the main timer cap from 180 to 200 seconds; round start remains 120 seconds.
+- Updated used-tile main timer rewards to 2LS +2s, 3LS +3s, 2WS +2s, and 3WS +3s.
+- Added Word Amplifier time rewards of +0/+5/+10/+15/+20 seconds for 3/4/5/6/7+ letter words, additive to the base valid-word and used bonus-tile rewards.
+- Set Chrono Combo to a 7-second initial countdown and 20-second cap.
+- Set the fixed 500-entry bonus distribution to NO 350, 2LS 50, 3LS 40, 2WS 35, and 3WS 25.
+- Increased stored charge caps to 10 Rotate and 5 Randomize. Randomize now consumes one stored charge per use and can recharge up to its cap after every five valid words.
