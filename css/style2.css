@@ -338,3 +338,12 @@ body.theme-style2 .board-action.action-armed { outline-color: #FFC52E; }
   .board.board-rotate-spin, .tile.action-rotate-counter { animation-duration: .01ms; }
   .tile.tile-flip.action-tile-flip { animation-duration: .01ms; }
 }
+
+/* Style 2: Bomb and Swap remain visually distinct from Rotate and Randomize. */
+body.theme-style2 .board-action.bomb-action { border-color: rgba(255, 128, 107, .86); }
+body.theme-style2 .board-action.bomb-action .action-symbol, body.theme-style2 .board-action.bomb-action .action-count { color: #ff9b88; }
+body.theme-style2 .board-action.bomb-action .action-count { border-color: rgba(255, 128, 107, .78); }
+body.theme-style2 .board-action.swap-action { border-color: rgba(201, 154, 255, .86); }
+body.theme-style2 .board-action.swap-action .action-symbol, body.theme-style2 .board-action.swap-action .action-count { color: #d6b5ff; }
+body.theme-style2 .board-action.swap-action .action-count { border-color: rgba(201, 154, 255, .78); }
+body.theme-style2 .tile.power-target-selected { outline-color: #ffc52e; }

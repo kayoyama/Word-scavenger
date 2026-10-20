@@ -110,6 +110,12 @@
         <button id="randomize-action" class="board-action randomize-action" type="button" disabled>
           <span class="action-symbol" aria-hidden="true">⤨</span><span class="action-copy"><strong>RANDOMIZE</strong><small id="randomize-hint">Earn charges every 5 correct words</small></span><span id="randomize-count" class="action-count">0 / 5</span>
         </button>
+        <button id="bomb-action" class="board-action bomb-action" type="button" disabled>
+          <span class="action-symbol" aria-hidden="true">✹</span><span class="action-copy"><strong>BOMB</strong><small id="bomb-hint">Earn every 10 words or a 6-letter word</small></span><span id="bomb-count" class="action-count">0 / 3</span>
+        </button>
+        <button id="swap-action" class="board-action swap-action" type="button" disabled>
+          <span class="action-symbol" aria-hidden="true">⇄</span><span class="action-copy"><strong>SWAP</strong><small id="swap-hint">Earn every 15 words or a 7-letter word</small></span><span id="swap-count" class="action-count">0 / 3</span>
+        </button>
       </div>
       <div class="board-stage">
         <div id="board" class="board" role="group" aria-label="5 by 5 letter board"></div>

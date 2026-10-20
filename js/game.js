@@ -13,6 +13,10 @@
   const ROTATE_CHARGE_CAP = 10;
   const RANDOMIZE_CHARGE_CAP = 5;
   const RANDOMIZE_WORDS_PER_CHARGE = 5;
+  const BOMB_CHARGE_CAP = 3;
+  const BOMB_WORDS_PER_CHARGE = 10;
+  const SWAP_CHARGE_CAP = 3;
+  const SWAP_WORDS_PER_CHARGE = 15;
   const STORAGE_KEY = 'wordScavengerBrowserStats';
   const BONUS_CLASSES = {
     NO: '', '2LS': 'bonus-2ls', '3LS': 'bonus-3ls',
@@ -41,6 +45,13 @@
   let randomizeCharges = 0;
   let randomizeWordProgress = 0;
   let randomizeMode = false;
+  let bombCharges = 0;
+  let bombWordProgress = 0;
+  let bombMode = false;
+  let swapCharges = 0;
+  let swapWordProgress = 0;
+  let swapMode = false;
+  let swapFirstIndex = null;
   let secondsLeft = ROUND_SECONDS;
   let timerId = null;
   let countdownId = null;
@@ -201,20 +212,30 @@
   function renderActionCharges() {
     const rotateButton = el('rotate-action');
     const randomizeButton = el('randomize-action');
-    if (!rotateButton || !randomizeButton) return;
+    const bombButton = el('bomb-action');
+    const swapButton = el('swap-action');
+    if (!rotateButton || !randomizeButton || !bombButton || !swapButton) return;
     el('rotate-count').textContent = `${rotateCharges} / ${ROTATE_CHARGE_CAP}`;
     el('randomize-count').textContent = `${randomizeCharges} / ${RANDOMIZE_CHARGE_CAP}`;
+    el('bomb-count').textContent = `${bombCharges} / ${BOMB_CHARGE_CAP}`;
+    el('swap-count').textContent = `${swapCharges} / ${SWAP_CHARGE_CAP}`;
     el('randomize-hint').textContent = randomizeCharges > 0
       ? (randomizeCharges >= RANDOMIZE_CHARGE_CAP ? 'Storage full · choose a tile' : 'Choose a tile to change its letter')
       : `Next charge: ${RANDOMIZE_WORDS_PER_CHARGE - randomizeWordProgress} correct word${RANDOMIZE_WORDS_PER_CHARGE - randomizeWordProgress === 1 ? '' : 's'}`;
+    el('bomb-hint').textContent = bombMode ? 'Click the intersection of four tiles' : 'Earn every 10 words or a 6-letter word';
+    el('swap-hint').textContent = swapMode ? (swapFirstIndex === null ? 'Select the first tile' : 'Select the second tile') : 'Earn every 15 words or a 7-letter word';
     const boardLocked = actionBusy || lockedTileIndices.size > 0;
     rotateButton.disabled = !roundActive || boardLocked || rotateCharges <= 0;
     randomizeButton.disabled = !roundActive || boardLocked || (randomizeCharges <= 0 && !randomizeMode);
+    bombButton.disabled = !roundActive || boardLocked || (bombCharges <= 0 && !bombMode);
+    swapButton.disabled = !roundActive || boardLocked || (swapCharges <= 0 && !swapMode);
     board.classList.toggle('board-actions-locked', boardLocked);
     randomizeButton.classList.toggle('action-armed', randomizeMode);
+    bombButton.classList.toggle('action-armed', bombMode);
+    swapButton.classList.toggle('action-armed', swapMode);
   }
 
-  function grantActionCharges() {
+  function grantActionCharges(wordLength) {
     rotateCharges = Math.min(ROTATE_CHARGE_CAP, rotateCharges + 1);
     if (randomizeCharges < RANDOMIZE_CHARGE_CAP) {
       randomizeWordProgress += 1;
@@ -222,10 +243,147 @@
         randomizeCharges = Math.min(RANDOMIZE_CHARGE_CAP, randomizeCharges + 1);
         randomizeWordProgress = 0;
       }
-    } else {
-      randomizeWordProgress = 0;
-    }
+    } else randomizeWordProgress = 0;
+
+    // A qualifying long word OR a word-count milestone grants one charge, never both.
+    if (bombCharges < BOMB_CHARGE_CAP) {
+      bombWordProgress += 1;
+      if (wordLength === 6 || bombWordProgress >= BOMB_WORDS_PER_CHARGE) {
+        bombCharges += 1;
+        bombWordProgress = 0;
+      }
+    } else bombWordProgress = 0;
+    if (swapCharges < SWAP_CHARGE_CAP) {
+      swapWordProgress += 1;
+      if (wordLength === 7 || swapWordProgress >= SWAP_WORDS_PER_CHARGE) {
+        swapCharges += 1;
+        swapWordProgress = 0;
+      }
+    } else swapWordProgress = 0;
     renderActionCharges();
+  }
+
+  function cancelPowerModes() {
+    randomizeMode = false;
+    bombMode = false;
+    swapMode = false;
+    swapFirstIndex = null;
+    board.querySelectorAll('.power-target-selected').forEach((tile) => tile.classList.remove('power-target-selected'));
+  }
+
+  function armBomb() {
+    if (!roundActive || actionBusy || lockedTileIndices.size > 0 || (bombCharges <= 0 && !bombMode)) return;
+    const wasArmed = bombMode;
+    cancelPowerModes();
+    bombMode = !wasArmed;
+    selectedIndices = [];
+    isSelecting = false;
+    clearSelectionStyles();
+    el('word-feedback').textContent = bombMode ? 'Bomb: click the intersection at the center of four tiles' : 'Drag across letters to select them';
+    renderActionCharges();
+  }
+
+  function armSwap() {
+    if (!roundActive || actionBusy || lockedTileIndices.size > 0 || (swapCharges <= 0 && !swapMode)) return;
+    const wasArmed = swapMode;
+    cancelPowerModes();
+    swapMode = !wasArmed;
+    swapFirstIndex = null;
+    selectedIndices = [];
+    isSelecting = false;
+    clearSelectionStyles();
+    el('word-feedback').textContent = swapMode ? 'Swap: select two tiles' : 'Drag across letters to select them';
+    renderActionCharges();
+  }
+
+  function findBombBlockAtPoint(x, y) {
+    let best = null;
+    let bestDistance = Infinity;
+    const rects = Array.from({ length: SIZE * SIZE }, (_, index) => {
+      const tile = board.querySelector(`[data-index="${index}"]`);
+      return tile ? tile.getBoundingClientRect() : null;
+    });
+    for (let row = 0; row < SIZE - 1; row += 1) {
+      for (let col = 0; col < SIZE - 1; col += 1) {
+        const a = rects[row * SIZE + col];
+        const b = rects[row * SIZE + col + 1];
+        const c = rects[(row + 1) * SIZE + col];
+        if (!a || !b || !c) continue;
+        const ix = (a.right + b.left) / 2;
+        const iy = (a.bottom + c.top) / 2;
+        const distance = Math.hypot(x - ix, y - iy);
+        if (distance < bestDistance) { bestDistance = distance; best = { row, col }; }
+      }
+    }
+    if (!best) return null;
+    const first = rects[best.row * SIZE + best.col];
+    const tolerance = Math.max(8, Math.min(first.width, first.height) * 0.22);
+    return bestDistance <= tolerance ? best : null;
+  }
+
+  function useBombAt(row, col) {
+    if (!bombMode || bombCharges <= 0 || !roundActive || actionBusy) return false;
+    cancelPowerModes();
+    bombCharges -= 1;
+    actionBusy = true;
+    const changedColumns = [col, col + 1];
+    changedColumns.forEach((column) => {
+      const originalColumn = Array.from({ length: SIZE }, (_, r) => tiles[r * SIZE + column]);
+      const newColumn = originalColumn.slice();
+      // Tiles above the 2x2 block fall down two rows, retaining their full metadata.
+      // Their vacated upper positions are randomly refilled; tiles below the block stay put.
+      for (let sourceRow = 0; sourceRow < row; sourceRow += 1) {
+        newColumn[sourceRow + 2] = originalColumn[sourceRow];
+      }
+      for (let r = 0; r < row; r += 1) newColumn[r] = { letter: drawLetter(), bonus: drawBonus() };
+      for (let r = row; r < row + 2; r += 1) {
+        if (r < 2 || !newColumn[r]) newColumn[r] = { letter: drawLetter(), bonus: drawBonus() };
+      }
+      for (let r = 0; r < SIZE; r += 1) tiles[r * SIZE + column] = newColumn[r];
+    });
+    selectedIndices = [];
+    clearSelectionStyles();
+    renderBoard();
+    board.querySelectorAll('.tile').forEach((tile) => tile.classList.add('tile-flip'));
+    const token = refillToken;
+    scheduleRefillTimer(() => {
+      board.querySelectorAll('.tile').forEach((tile) => tile.classList.remove('tile-flip'));
+      actionBusy = false;
+      renderActionCharges();
+      el('word-feedback').textContent = 'Bomb used · tiles shifted';
+    }, 220, token);
+    renderActionCharges();
+    return true;
+  }
+
+  function useSwap(firstIndex, secondIndex) {
+    if (!swapMode || swapCharges <= 0 || firstIndex === secondIndex || !roundActive || actionBusy) return false;
+    const first = tiles[firstIndex];
+    tiles[firstIndex] = tiles[secondIndex];
+    tiles[secondIndex] = first;
+    swapCharges -= 1;
+    cancelPowerModes();
+    selectedIndices = [];
+    isSelecting = false;
+    actionBusy = true;
+    updateTileElement(firstIndex);
+    updateTileElement(secondIndex);
+    [firstIndex, secondIndex].forEach((index) => {
+      const tile = board.querySelector(`[data-index="${index}"]`);
+      if (tile) tile.classList.add('tile-flip');
+    });
+    el('word-feedback').textContent = 'Swap complete';
+    const token = refillToken;
+    scheduleRefillTimer(() => {
+      [firstIndex, secondIndex].forEach((index) => {
+        const tile = board.querySelector(`[data-index="${index}"]`);
+        if (tile) tile.classList.remove('tile-flip');
+      });
+      actionBusy = false;
+      renderActionCharges();
+    }, 180, token);
+    renderActionCharges();
+    return true;
   }
 
   function setActionsBusy(busy) {
@@ -249,7 +407,7 @@
   function rotateBoardClockwise() {
     if (!roundActive || actionBusy || rotateCharges <= 0 || lockedTileIndices.size > 0) return;
     rotateCharges -= 1;
-    randomizeMode = false;
+    cancelPowerModes();
     selectedIndices = [];
     isSelecting = false;
     clearSelectionStyles();
@@ -315,8 +473,10 @@
   }
 
   function armRandomize() {
-    if (!roundActive || actionBusy || randomizeCharges <= 0 || lockedTileIndices.size > 0) return;
-    randomizeMode = !randomizeMode;
+    if (!roundActive || actionBusy || (randomizeCharges <= 0 && !randomizeMode) || lockedTileIndices.size > 0) return;
+    const wasArmed = randomizeMode;
+    cancelPowerModes();
+    randomizeMode = !wasArmed;
     selectedIndices = [];
     isSelecting = false;
     clearSelectionStyles();
@@ -564,6 +724,13 @@
     randomizeCharges = 0;
     randomizeWordProgress = 0;
     randomizeMode = false;
+    bombCharges = 0;
+    bombWordProgress = 0;
+    bombMode = false;
+    swapCharges = 0;
+    swapWordProgress = 0;
+    swapMode = false;
+    swapFirstIndex = null;
     roundActive = false;
     secondsLeft = ROUND_SECONDS;
     totalScore = 0;
@@ -655,7 +822,10 @@
     const extra = indices.reduce((sum, index) => sum + (bonusSeconds[tiles[index].bonus] || 0), 0);
     const amplifierSeconds = [0, 0, 0, 0, 5, 10, 15, 20][Math.min(indices.length, 7)] || 0;
     const requested = 2 + extra + amplifierSeconds;
-    const added = Math.max(0, Math.min(requested, MAX_TIME_SECONDS - secondsLeft));
+    const perWordCaps = [0, 0, 0, 10, 15, 20, 25, 30];
+    const wordCap = perWordCaps[Math.min(indices.length, 7)] || 30;
+    const cappedRequested = Math.min(requested, wordCap);
+    const added = Math.max(0, Math.min(cappedRequested, MAX_TIME_SECONDS - secondsLeft));
     secondsLeft += added;
     sessionTimeBonus += added;
     updateCountdown();
@@ -1079,7 +1249,7 @@
     totalScore += wordAndComboScore;
     lastScore = wordAndComboScore;
     sessionWords += 1;
-    grantActionCharges();
+    grantActionCharges(word.length);
     // Keep the round breakdown additive: original scoring first, then Amplifier, then Combo.
     sessionWordAndTileScore += result.baseTotal;
     sessionAmplifierBonus += result.amplifierBonus;
@@ -1261,14 +1431,31 @@
   el('game-menu-button').addEventListener('click', () => { roundActive = false; hideChronoCombo(); stopTimers(); showScreen('front'); });
   el('rotate-action').addEventListener('click', rotateBoardClockwise);
   el('randomize-action').addEventListener('click', armRandomize);
+  el('bomb-action').addEventListener('click', armBomb);
+  el('swap-action').addEventListener('click', armSwap);
   el('play-again-button').addEventListener('click', startGame);
   el('results-menu-button').addEventListener('click', () => { el('game-over').hidden = true; showScreen('front'); });
 
   board.addEventListener('pointerdown', (event) => {
     if (!roundActive || actionBusy || event.button > 0) return;
+    event.preventDefault();
+    if (bombMode) {
+      const block = findBombBlockAtPoint(event.clientX, event.clientY);
+      if (block) useBombAt(block.row, block.col);
+      return;
+    }
     const tile = event.target.closest('.tile');
     if (!tile) return;
-    event.preventDefault();
+    if (swapMode) {
+      const index = Number(tile.dataset.index);
+      if (swapFirstIndex === null) {
+        swapFirstIndex = index;
+        tile.classList.add('power-target-selected');
+        el('word-feedback').textContent = 'Swap: select the second tile';
+        renderActionCharges();
+      } else useSwap(swapFirstIndex, index);
+      return;
+    }
     if (randomizeMode) { randomizeTileLetter(Number(tile.dataset.index)); return; }
     isSelecting = true;
     selectedIndices = [];

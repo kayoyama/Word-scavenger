@@ -21,3 +21,11 @@ Validation
 - Chrono Combo now starts at 7 seconds and caps at 20 seconds; score progression unchanged.
 - Bonus bag fixed to 500 entries: NO 350, 2LS 50, 3LS 40, 2WS 35, 3WS 25.
 - Stored action caps increased to 10 Rotate charges and 5 Randomize charges; each Randomize use consumes one charge.
+
+2026-10-21 — Timer cap and Bomb/Swap powers
+- Added per-valid-word caps to combined main-timer rewards (base + bonus tiles + Word Amplifier): 10s for 3-letter words, 15s for 4, 20s for 5, 25s for 6, and 30s for 7+.
+- Added Bomb charges (maximum 3), earned after 10 valid words or a qualifying 6-letter word. Bomb targets a 2×2 block by clicking the intersection of its four tiles; tiles above fall down two rows with their metadata preserved, and vacated upper positions receive random tiles.
+- Added Swap charges (maximum 3), earned after 15 valid words or a qualifying 7-letter word. Swap mode selects two tiles and exchanges their complete tile data without score/time rewards.
+- Charge awards are limited to one per power per accepted word, and stored charges never exceed their caps.
+- Updated both themes with Bomb/Swap action styling.
+- Static syntax and archive checks are required; browser interaction testing status is recorded separately in the delivery notes.

@@ -448,3 +448,12 @@ button:focus-visible { outline: 3px solid #ffe66d; outline-offset: 3px; }
   .board.board-rotate-spin, .tile.action-rotate-counter { animation-duration: .01ms; }
   .tile.tile-flip.action-tile-flip { animation-duration: .01ms; }
 }
+
+/* Bomb and Swap power controls. */
+.board-action.bomb-action { border-color: rgba(255, 112, 92, .78); }
+.board-action.bomb-action .action-symbol, .board-action.bomb-action .action-count { color: #ff806b; }
+.board-action.bomb-action .action-count { border-color: rgba(255, 112, 92, .72); }
+.board-action.swap-action { border-color: rgba(190, 137, 255, .78); }
+.board-action.swap-action .action-symbol, .board-action.swap-action .action-count { color: #c99aff; }
+.board-action.swap-action .action-count { border-color: rgba(190, 137, 255, .72); }
+.tile.power-target-selected { outline: 3px solid #ffc52e; outline-offset: -3px; box-shadow: 0 0 12px rgba(255,197,46,.85); z-index: 2; }
