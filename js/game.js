@@ -34,6 +34,7 @@
   let pointerTracePoints = [];
   let rotateCenterOverlay = null;
   let rotateCenterOriginal = null;
+  let bombTargetPreview = null;
   const wordlistSet = new Set(Array.isArray(window.wordlist) ? window.wordlist : []);
 
   let tiles = [];
@@ -269,6 +270,7 @@
     swapMode = false;
     swapFirstIndex = null;
     board.querySelectorAll('.power-target-selected').forEach((tile) => tile.classList.remove('power-target-selected'));
+    hideBombTargetPreview();
   }
 
   function armBomb() {
@@ -296,7 +298,23 @@
     renderActionCharges();
   }
 
-  function findBombBlockAtPoint(x, y) {
+  function getBombBlockGeometry(row, col) {
+    const indices = [row * SIZE + col, row * SIZE + col + 1, (row + 1) * SIZE + col, (row + 1) * SIZE + col + 1];
+    const rects = indices.map((index) => {
+      const tile = board.querySelector(`[data-index="${index}"]`);
+      return tile ? tile.getBoundingClientRect() : null;
+    });
+    if (rects.some((rect) => !rect)) return null;
+    return {
+      indices,
+      left: Math.min(...rects.map((rect) => rect.left)),
+      top: Math.min(...rects.map((rect) => rect.top)),
+      right: Math.max(...rects.map((rect) => rect.right)),
+      bottom: Math.max(...rects.map((rect) => rect.bottom))
+    };
+  }
+
+  function nearestBombBlockAtPoint(x, y) {
     let best = null;
     let bestDistance = Infinity;
     const rects = Array.from({ length: SIZE * SIZE }, (_, index) => {
@@ -312,13 +330,99 @@
         const ix = (a.right + b.left) / 2;
         const iy = (a.bottom + c.top) / 2;
         const distance = Math.hypot(x - ix, y - iy);
-        if (distance < bestDistance) { bestDistance = distance; best = { row, col }; }
+        if (distance < bestDistance) { bestDistance = distance; best = { row, col, distance }; }
       }
     }
+    return best;
+  }
+
+  function findBombBlockAtPoint(x, y) {
+    const best = nearestBombBlockAtPoint(x, y);
     if (!best) return null;
-    const first = rects[best.row * SIZE + best.col];
-    const tolerance = Math.max(8, Math.min(first.width, first.height) * 0.22);
-    return bestDistance <= tolerance ? best : null;
+    const geometry = getBombBlockGeometry(best.row, best.col);
+    if (!geometry) return null;
+    const boardRect = board.getBoundingClientRect();
+    if (x < boardRect.left || x > boardRect.right || y < boardRect.top || y > boardRect.bottom) return null;
+    const first = board.querySelector(`[data-index="${best.row * SIZE + best.col}"]`);
+    const tolerance = Math.max(8, Math.min(first.getBoundingClientRect().width, first.getBoundingClientRect().height) * 0.22);
+    return best.distance <= tolerance ? { row: best.row, col: best.col } : null;
+  }
+
+  function updateBombTargetPreview(x, y) {
+    if (!bombMode || !roundActive || !boardStage) return;
+    const boardRect = board.getBoundingClientRect();
+    if (x < boardRect.left || x > boardRect.right || y < boardRect.top || y > boardRect.bottom) {
+      hideBombTargetPreview();
+      return;
+    }
+    const nearest = nearestBombBlockAtPoint(x, y);
+    if (!nearest) { hideBombTargetPreview(); return; }
+    const geometry = getBombBlockGeometry(nearest.row, nearest.col);
+    if (!geometry) { hideBombTargetPreview(); return; }
+    if (!bombTargetPreview) {
+      bombTargetPreview = document.createElement('div');
+      bombTargetPreview.className = 'bomb-target-preview';
+      bombTargetPreview.setAttribute('aria-hidden', 'true');
+      for (let i = 0; i < 4; i += 1) {
+        const cell = document.createElement('span');
+        cell.className = 'bomb-target-cell';
+        bombTargetPreview.appendChild(cell);
+      }
+      boardStage.appendChild(bombTargetPreview);
+    }
+    const stageRect = boardStage.getBoundingClientRect();
+    bombTargetPreview.style.left = `${geometry.left - stageRect.left}px`;
+    bombTargetPreview.style.top = `${geometry.top - stageRect.top}px`;
+    bombTargetPreview.style.width = `${geometry.right - geometry.left}px`;
+    bombTargetPreview.style.height = `${geometry.bottom - geometry.top}px`;
+    bombTargetPreview.dataset.row = String(nearest.row);
+    bombTargetPreview.dataset.col = String(nearest.col);
+    bombTargetPreview.hidden = false;
+  }
+
+  function hideBombTargetPreview() {
+    if (bombTargetPreview) bombTargetPreview.remove();
+    bombTargetPreview = null;
+  }
+
+  function captureTilePositions() {
+    const positions = new Map();
+    tiles.forEach((tileData, index) => {
+      const element = board.querySelector(`[data-index="${index}"]`);
+      if (element) positions.set(tileData, element.getBoundingClientRect());
+    });
+    return positions;
+  }
+
+  function animateTilePositions(oldPositions, movedTileData, newTileData = [], duration = 300) {
+    const animated = [];
+    tiles.forEach((tileData, index) => {
+      const element = board.querySelector(`[data-index="${index}"]`);
+      if (!element) return;
+      const oldRect = oldPositions.get(tileData);
+      const isMoved = movedTileData.has(tileData);
+      const isNew = newTileData.has(tileData);
+      if (!isMoved && !isNew) return;
+      const newRect = element.getBoundingClientRect();
+      const dx = oldRect ? oldRect.left - newRect.left : 0;
+      const dy = oldRect ? oldRect.top - newRect.top : -(newRect.height + 8);
+      element.style.transition = 'none';
+      element.style.transform = `translate(${dx}px, ${dy}px)`;
+      element.classList.add('power-move-animated');
+      animated.push(element);
+    });
+    void board.offsetWidth;
+    requestAnimationFrame(() => {
+      animated.forEach((element) => {
+        element.style.transition = `transform ${duration}ms cubic-bezier(.2,.72,.25,1)`;
+        element.style.transform = 'translate(0, 0)';
+      });
+    });
+    window.setTimeout(() => animated.forEach((element) => {
+      element.style.transition = '';
+      element.style.transform = '';
+      element.classList.remove('power-move-animated');
+    }), duration + 40);
   }
 
   function useBombAt(row, col) {
@@ -326,31 +430,51 @@
     cancelPowerModes();
     bombCharges -= 1;
     actionBusy = true;
-    const changedColumns = [col, col + 1];
-    changedColumns.forEach((column) => {
-      const originalColumn = Array.from({ length: SIZE }, (_, r) => tiles[r * SIZE + column]);
-      const newColumn = originalColumn.slice();
-      // Tiles above the 2x2 block fall down two rows, retaining their full metadata.
-      // Their vacated upper positions are randomly refilled; tiles below the block stay put.
-      for (let sourceRow = 0; sourceRow < row; sourceRow += 1) {
-        newColumn[sourceRow + 2] = originalColumn[sourceRow];
-      }
-      for (let r = 0; r < row; r += 1) newColumn[r] = { letter: drawLetter(), bonus: drawBonus() };
-      for (let r = row; r < row + 2; r += 1) {
-        if (r < 2 || !newColumn[r]) newColumn[r] = { letter: drawLetter(), bonus: drawBonus() };
-      }
-      for (let r = 0; r < SIZE; r += 1) tiles[r * SIZE + column] = newColumn[r];
-    });
+    const rowIndices = [row * SIZE + col, row * SIZE + col + 1, (row + 1) * SIZE + col, (row + 1) * SIZE + col + 1];
+    const oldPositions = captureTilePositions();
+    const bombedElements = rowIndices.map((index) => board.querySelector(`[data-index="${index}"]`)).filter(Boolean);
+    bombedElements.forEach((tile) => tile.classList.add('bomb-exploding'));
     selectedIndices = [];
     clearSelectionStyles();
-    renderBoard();
-    board.querySelectorAll('.tile').forEach((tile) => tile.classList.add('tile-flip'));
     const token = refillToken;
+    // Keep the old board in place for the explosion; mutate/refill only after it finishes.
     scheduleRefillTimer(() => {
-      board.querySelectorAll('.tile').forEach((tile) => tile.classList.remove('tile-flip'));
-      actionBusy = false;
+      const changedData = new Set();
+      const newData = new Set();
+      const changedColumns = [col, col + 1];
+      changedColumns.forEach((column) => {
+        const originalColumn = Array.from({ length: SIZE }, (_, r) => tiles[r * SIZE + column]);
+        const newColumn = originalColumn.slice();
+        // The two tiles above the target fall into the cleared block. Empty positions
+        // above them receive fresh tiles; rows below the block remain untouched.
+        for (let r = 0; r < row; r += 1) {
+          newColumn[r] = { letter: drawLetter(), bonus: drawBonus() };
+          newData.add(newColumn[r]);
+        }
+        for (let offset = 0; offset < 2; offset += 1) {
+          const destinationRow = row + offset;
+          const sourceRow = destinationRow - 2;
+          if (sourceRow >= 0) {
+            newColumn[destinationRow] = originalColumn[sourceRow];
+            changedData.add(originalColumn[sourceRow]);
+          } else {
+            newColumn[destinationRow] = { letter: drawLetter(), bonus: drawBonus() };
+            newData.add(newColumn[destinationRow]);
+          }
+        }
+        for (let r = 0; r < SIZE; r += 1) {
+          if (r !== row && r !== row + 1 && r >= row + 2) newColumn[r] = originalColumn[r];
+          tiles[r * SIZE + column] = newColumn[r];
+        }
+      });
+      renderBoard();
+      animateTilePositions(oldPositions, changedData, newData, 300);
       renderActionCharges();
-      el('word-feedback').textContent = 'Bomb used · tiles shifted';
+      el('word-feedback').textContent = 'Bomb used · tiles exploded and fell';
+      scheduleRefillTimer(() => {
+        actionBusy = false;
+        renderActionCharges();
+      }, 340, token);
     }, 220, token);
     renderActionCharges();
     return true;
@@ -358,30 +482,24 @@
 
   function useSwap(firstIndex, secondIndex) {
     if (!swapMode || swapCharges <= 0 || firstIndex === secondIndex || !roundActive || actionBusy) return false;
+    const oldPositions = captureTilePositions();
     const first = tiles[firstIndex];
-    tiles[firstIndex] = tiles[secondIndex];
+    const second = tiles[secondIndex];
+    tiles[firstIndex] = second;
     tiles[secondIndex] = first;
     swapCharges -= 1;
     cancelPowerModes();
     selectedIndices = [];
     isSelecting = false;
     actionBusy = true;
-    updateTileElement(firstIndex);
-    updateTileElement(secondIndex);
-    [firstIndex, secondIndex].forEach((index) => {
-      const tile = board.querySelector(`[data-index="${index}"]`);
-      if (tile) tile.classList.add('tile-flip');
-    });
+    renderBoard();
+    animateTilePositions(oldPositions, new Set([first, second]), new Set(), 220);
     el('word-feedback').textContent = 'Swap complete';
     const token = refillToken;
     scheduleRefillTimer(() => {
-      [firstIndex, secondIndex].forEach((index) => {
-        const tile = board.querySelector(`[data-index="${index}"]`);
-        if (tile) tile.classList.remove('tile-flip');
-      });
       actionBusy = false;
       renderActionCharges();
-    }, 180, token);
+    }, 260, token);
     renderActionCharges();
     return true;
   }
@@ -1466,6 +1584,7 @@
     selectTile(Number(tile.dataset.index));
   });
   board.addEventListener('pointermove', (event) => {
+    if (bombMode && roundActive && !actionBusy) { updateBombTargetPreview(event.clientX, event.clientY); return; }
     if (!isSelecting || !roundActive || actionBusy) return;
     // Keep the visual trace on the real pointer coordinates. Tile selection still
     // samples between pointer events separately so fast drags cannot skip tiles.
@@ -1495,6 +1614,7 @@
     lastPointerY = null;
     finishSelection();
   }
+  board.addEventListener('pointerleave', () => { if (bombMode) hideBombTargetPreview(); });
   board.addEventListener('pointerup', pointerEnd);
   board.addEventListener('pointercancel', pointerEnd);
   board.addEventListener('contextmenu', (event) => event.preventDefault());

@@ -347,3 +347,21 @@ body.theme-style2 .board-action.swap-action { border-color: rgba(201, 154, 255, 
 body.theme-style2 .board-action.swap-action .action-symbol, body.theme-style2 .board-action.swap-action .action-count { color: #d6b5ff; }
 body.theme-style2 .board-action.swap-action .action-count { border-color: rgba(201, 154, 255, .78); }
 body.theme-style2 .tile.power-target-selected { outline-color: #ffc52e; }
+
+/* Shared power animations: target preview, local Bomb explosion, falling tiles, and Swap. */
+.bomb-target-preview {
+  position: absolute; z-index: 8; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr)); gap: var(--tile-gap); pointer-events: none; border-radius: 10px;
+  background: rgba(255, 91, 67, .16); box-shadow: 0 0 0 2px rgba(255, 113, 82, .95), 0 0 18px rgba(255, 71, 47, .7);
+  animation: bomb-target-pulse .65s ease-in-out infinite alternate;
+}
+.bomb-target-cell { border: 2px solid rgba(255, 221, 163, .95); border-radius: clamp(5px, 1.4vw, 10px); background: rgba(255, 89, 64, .12); }
+@keyframes bomb-target-pulse { from { filter: brightness(.92); opacity: .78; } to { filter: brightness(1.22); opacity: 1; } }
+.tile.bomb-exploding { z-index: 5; animation: bomb-tile-explosion 220ms ease-in forwards; pointer-events: none; }
+@keyframes bomb-tile-explosion {
+  0% { opacity: 1; transform: scale(1) rotate(0deg); filter: brightness(1); box-shadow: inset 0 2px 0 rgba(255,255,255,.42), 0 0 0 rgba(255,90,45,0); }
+  28% { opacity: 1; transform: scale(1.12) rotate(3deg); filter: brightness(2.2) saturate(1.4); box-shadow: 0 0 24px 7px rgba(255,115,50,.95); }
+  100% { opacity: 0; transform: scale(.18) rotate(-12deg); filter: brightness(2.5); }
+}
+.tile.power-move-animated { z-index: 4; will-change: transform; }
+@media (prefers-reduced-motion: reduce) { .bomb-target-preview { animation: none; } .tile.bomb-exploding { animation-duration: .01ms; } }

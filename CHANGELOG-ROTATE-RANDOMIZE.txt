@@ -29,3 +29,11 @@ Validation
 - Charge awards are limited to one per power per accepted word, and stored charges never exceed their caps.
 - Updated both themes with Bomb/Swap action styling.
 - Static syntax and archive checks are required; browser interaction testing status is recorded separately in the delivery notes.
+
+## 2026-10-21 — Bomb and Swap animation refinements
+- Added a snapping 2×2 Bomb target preview that follows the pointer across valid board intersections.
+- Reworked Bomb refill mapping so the two tiles immediately above the selected block fall into it, tiles above their former positions are newly generated, and tiles below the block stay unchanged.
+- Added a localized explosion animation to only the four targeted tiles; unrelated tiles no longer use the flip animation during Bomb.
+- Added position-based falling transitions for moved and newly generated Bomb tiles.
+- Replaced Swap's tile flip with a short slide animation for the two exchanged tiles only.
+- Preserved tile objects and their bonus metadata when moving existing tiles. Browser interaction testing remains required for visual approval.
