@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#005f85">
+  <meta name="description" content="Word Scavenger — find words, score points, and beat the clock.">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Word Scavenger">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <title>Word Scavenger</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script defer src="js/wordlist.js"></script>
+  <script defer src="js/scoring-rules.js"></script>
+  <script defer src="js/game.js"></script>
+  <script defer src="js/theme-toggle.js"></script>
+  <script defer src="js/pwa-register.js"></script>
+</head>
+<body>
+  <main class="app-shell">
+    <section id="front-screen" class="screen front-screen" aria-label="Main menu">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">W</div>
+        <h1>Word Scavenger</h1>
+        <p>Find words. Score points. Beat the clock.</p>
+      </div>
+      <section class="classic-mode-card" aria-label="Classic Mode overview">
+        <div><span>CLASSIC MODE</span><strong>120 SEC</strong></div>
+        <div><span>MAKE WORDS</span><strong>+ TIME</strong></div>
+        <div><span>BUILD STREAKS</span><strong>COMBOS</strong></div>
+      </section>
+      <section class="personal-best-panel" aria-label="Personal best">
+        <span class="panel-label">PERSONAL BEST</span>
+        <strong id="menu-best-score">0</strong>
+        <span id="menu-best-detail">Play a round to set your record</span>
+      </section>
+      <div class="menu-actions">
+        <button id="new-game-button" class="menu-button primary">New Game</button>
+        <button id="stats-button" class="menu-button">Stats</button>
+      </div>
+      <p class="menu-note">A 2-minute word challenge</p>
+
+      <div id="tutorial-overlay" class="modal-overlay" hidden>
+        <section class="tutorial-card" role="dialog" aria-modal="true" aria-labelledby="tutorial-title">
+          <p class="eyebrow">QUICK TUTORIAL</p>
+          <h2 id="tutorial-title">How to play</h2>
+          <ol class="tutorial-steps">
+            <li><strong>Drag across letters</strong> to spell a word.</li>
+            <li><strong>Release</strong> to submit it. Valid words score points and the used tiles refill.</li>
+            <li><strong>Use bonus tiles</strong> for higher scores and extra time.</li>
+            <li><strong>Build long words</strong> to trigger the gold Word Amplifier.</li>
+            <li><strong>Find 5+ letter words</strong> to create extra bonus tiles: 5 letters grants 1, 6 letters grants 2, and 7+ letters grants up to 3.</li>
+            <li><strong>Keep a streak alive</strong> to earn blue-and-gold Chrono Combo rewards.</li>
+            <li><strong>Keep going</strong> until the timer reaches zero. Every valid word adds at least 2 seconds.</li>
+          </ol>
+          <div class="tutorial-actions">
+            <button id="tutorial-start-button" class="menu-button primary">Start Game</button>
+            <button id="tutorial-skip-button" class="menu-button">Skip Tutorial</button>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section id="stats-screen" class="screen stats-screen" hidden>
+      <header class="screen-header">
+        <button id="stats-back-button" class="small-button">← Menu</button>
+        <h2>Stats</h2>
+        <span class="header-spacer"></span>
+      </header>
+      <div class="stats-summary">
+        <div class="stat-card"><span>Best Score</span><strong id="best-score">0</strong></div>
+        <div class="stat-card"><span>Games Played</span><strong id="games-played">0</strong></div>
+        <div class="stat-card"><span>Words Found</span><strong id="words-found">0</strong></div>
+      </div>
+      <section class="stats-list-section">
+        <h3>Personal Records</h3>
+        <div class="records-grid">
+          <div class="record-card"><span>AVERAGE GAME SCORE</span><strong id="average-game-score">0</strong></div>
+          <div class="record-card"><span>MOST WORDS IN A ROUND</span><strong id="best-round-words">0</strong></div>
+          <div class="record-card"><span>LONGEST WORD</span><strong id="stats-longest-word">—</strong><small id="stats-longest-length">No record yet</small></div>
+          <div class="record-card"><span>HIGHEST-SCORING WORD</span><strong id="stats-best-word">—</strong><small id="stats-best-word-score">No record yet</small></div>
+        </div>
+      </section>
+      <section class="stats-list-section">
+        <h3>Milestones</h3>
+        <div id="achievement-grid" class="achievement-grid"></div>
+      </section>
+      <section class="stats-list-section">
+        <h3>Recent Games</h3>
+        <div id="round-history" class="round-history"><p class="empty-state">Complete a round to see your history.</p></div>
+      </section>
+      <section class="stats-list-section">
+        <h3>Most Used Words</h3>
+        <div id="word-stats" class="word-stats"><p class="empty-state">Play a game to start building your stats.</p></div>
+      </section>
+    </section>
+
+    <section id="game-screen" class="screen game-screen" hidden>
+      <header class="game-header">
+        <button id="game-menu-button" class="small-button">← Menu</button>
+        <div class="timer-block"><span>TIME</span><strong id="countdown">02:00</strong><span id="time-bonus" class="time-bonus" aria-live="polite"></span></div>
+        <div class="score-block"><span>SCORE</span><strong id="score">0</strong><span id="score-gain" class="score-gain" aria-live="polite"></span></div>
+      </header>
+
+      <div id="combo-slot" class="combo-slot" aria-live="polite"></div>
+
+      <div class="word-display" aria-live="polite">
+        <div id="current-word" class="current-word">Find a word</div>
+        <div id="word-feedback" class="word-feedback">Drag across letters to select them</div>
+      </div>
+
+      <div class="board-actions" aria-label="Board actions">
+        <button id="rotate-action" class="board-action rotate-action" type="button" disabled>
+          <span class="action-symbol" aria-hidden="true">↻</span><span class="action-copy"><strong>ROTATE</strong><small>Turn board 90° clockwise</small></span><span id="rotate-count" class="action-count">0 / 10</span>
+        </button>
+        <button id="randomize-action" class="board-action randomize-action" type="button" disabled>
+          <span class="action-symbol" aria-hidden="true">⤨</span><span class="action-copy"><strong>RANDOMIZE</strong><small id="randomize-hint">Earn charges every 5 correct words</small></span><span id="randomize-count" class="action-count">0 / 5</span>
+        </button>
+        <button id="bomb-action" class="board-action bomb-action" type="button" disabled>
+          <span class="action-symbol" aria-hidden="true">✹</span><span class="action-copy"><strong>BOMB</strong><small id="bomb-hint">Earn every 10 words or a 6-letter word</small></span><span id="bomb-count" class="action-count">0 / 3</span>
+        </button>
+        <button id="swap-action" class="board-action swap-action" type="button" disabled>
+          <span class="action-symbol" aria-hidden="true">⇄</span><span class="action-copy"><strong>SWAP</strong><small id="swap-hint">Earn every 15 words or a 7-letter word</small></span><span id="swap-count" class="action-count">0 / 3</span>
+        </button>
+      </div>
+      <div class="board-stage">
+        <div id="board" class="board" role="group" aria-label="5 by 5 letter board"></div>
+        <svg id="selection-trace" class="selection-trace" aria-hidden="true"></svg>
+      </div>
+
+      <div class="game-footer">
+        <div class="last-score-line" hidden="true"><span>Last word</span><strong id="last-word">—</strong><span class="last-points" id="last-points">+0</span></div>
+        <div class="bonus-legend" aria-label="Bonus tile legend">
+          <span><i class="legend-tile bonus-2ls"></i>2× letter</span>
+          <span><i class="legend-tile bonus-3ls"></i>3× letter</span>
+          <span><i class="legend-tile bonus-2ws"></i>2× word</span>
+          <span><i class="legend-tile bonus-3ws"></i>3× word</span>
+        </div>
+      </div>
+
+      <div id="countdown-overlay" class="countdown-overlay" hidden aria-live="assertive">
+        <strong id="countdown-number">3</strong>
+        <span>Get ready!</span>
+      </div>
+
+      <div id="game-over" class="game-over-overlay" hidden>
+        <div class="game-over-card">
+          <p class="eyebrow">ROUND COMPLETE</p>
+          <h2>Time's up!</h2>
+          <p>Your score</p>
+          <strong id="final-score">0</strong>
+          <p id="personal-best-message" class="personal-best-message" hidden>NEW PERSONAL BEST!</p>
+          <div class="results-stats">
+            <div class="result-stat"><span>WORDS FOUND</span><strong id="result-words">0</strong></div>
+            <div class="result-stat"><span>LONGEST WORD</span><strong id="result-longest-word">—</strong><small id="result-longest-length">0 letters</small></div>
+            <div class="result-stat"><span>HIGHEST WORD SCORE</span><strong id="result-highest-word">—</strong><small id="result-highest-points">0 points</small></div>
+            <div class="result-stat"><span>AVERAGE POINTS / WORD</span><strong id="result-average-score">0</strong><small>Points per valid word</small></div>
+          </div>
+          <section class="round-breakdown" aria-label="Round score breakdown">
+            <h3>Score breakdown</h3>
+            <div><span>Words and tile bonuses</span><strong id="result-word-score">0</strong></div>
+            <div><span>Word Amplifier</span><strong id="result-amplifier-score">+0</strong></div>
+            <div><span>Chrono Combo</span><strong id="result-combo-score">+0</strong></div>
+            <div><span>Time earned</span><strong id="result-time-earned">+0s</strong></div>
+            <div><span>Highest combo</span><strong id="result-highest-combo">×0</strong></div>
+          </section>
+          <p id="result-milestones" class="result-milestones" hidden></p>
+          <p id="personal-best-comparison" class="personal-best-comparison">Previous personal best: 0</p>
+          <div class="game-over-actions">
+            <button id="play-again-button" class="menu-button primary">Play Again</button>
+            <button id="results-menu-button" class="menu-button">Main Menu</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

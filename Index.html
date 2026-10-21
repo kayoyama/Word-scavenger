@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<HTML>
+<HEAD>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="css/style.css" type="text/css">
+    <script type="text/javascript" src="js/letters.js"></script>
+    <script type="text/javascript" src="js/jscript.js"></script>
+    <script type="text/javascript" src="js/wordlist.js"></script>
+    <title>Word Scavenger</title>
+</HEAD>
+<BODY onload="front()">
+<div class="container"><div id="hidder" class="hidder" hidden><!-- --></div>
+<div class="statclass" id="statdiv" hidden>
+    <div class="tabs"><!--
+    --><div class="tab" id="tab1">
+            <input type="radio" id="tab-1" name="tab-group-1" checked onchange="tabWhite(1,'#eee','white')">
+            <label for="tab-1">&#8194;Top&#8194;&#8194;Score&#8194;</label>
+            <div class="content">
+                stuff1
+            </div>
+        </div>
+        <div class="tab" id="tab2">
+            <input type="radio" id="tab-2" name="tab-group-1" onchange="tabWhite(2,'#eee','white')">
+            <label for="tab-2">Top Word Score</label>
+            <div class="content">
+                stuff2
+            </div>
+        </div>
+        <div class="tab" id="tab3">
+            <input type="radio" id="tab-3" name="tab-group-1" onchange="tabWhite(3,'#eee','white')">
+            <label for="tab-3">Most Used Words</label>
+            <div class="content">
+                <div id="rows"></div></div>
+            </div>
+        </div>
+    </div>
+
+<div class="frontclass" id="frontdiv"><center><div class="menu new" id="newgamemenu">New Game</div>
+<div class="menu stat" id="statmenu">Stats</div></center><!----></div>
+<div class="game" id="game"><!-- --><center><div class="score" ><h1 id="countdowntime">02:00</h1></div><br>
+<div class="score left"><h1>Score: </h1><h1 id=score></h1></div>
+<div class="score right"><h1><!--Last score: --></h1><h1 id=lastscore></h1></div><br><br>
+<h1 id=touch>WORD1</h1><br></center>
+<span id='touchzone' class='zone'><center><!--
+--><div class="borderbox"><div class='outerbox' id=or1c1><div class='divbox' id=r1c1>11</div></div></div><!--
+--><div class="borderbox"><div class='outerbox' id=or1c2><div class='divbox' id=r1c2>12</div></div></div><!--
+--><div class="borderbox"><div class='outerbox' id=or1c3><div class='divbox' id=r1c3>13</div></div></div><!--
+--><div class="borderbox"><div class='outerbox' id=or1c4><div class='divbox' id=r1c4>14</div></div></div><!--
+--><div class="borderbox"><div class='outerbox' id=or1c5><div class='divbox' id=r1c5>15</div></div></div><br><!--
+--><div class="borderbox"><div class='outerbox' id=or2c1><div class='divbox' id=r2c1>21</div></div></div><!--
+--><div class="borderbox"><div class='outerbox' id=or2c2><div class='divbox' id=r2c2>22</div></div></div><!--
+--><div class="borderbox"><div class='outerbox' id=or2c3><div class='divbox' id=r2c3>23</div></div></div><!--
+--><div class="borderbox"><div class='outerbox' id=or2c4><div class='divbox' id=r2c4>24</div></div></div><!--
+--><div class="borderbox"><div class='outerbox' id=or2c5><div class='divbox' id=r2c5>25</div></div></div><br><!--
+--><div class="borderbox"><div class='outerbox' id=or3c1><div class='divbox' id=r3c1>31</div></div></div><!--
+--><div class="borderbox"><div class='outerbox' id=or3c2><div class='divbox' id=r3c2>32</div></div></div><!--
+--><div class="borderbox"><div class='outerbox' id=or3c3><div class='divbox' id=r3c3>33</div></div></div><!--
+--><div class="borderbox"><div class='outerbox' id=or3c4><div class='divbox' id=r3c4>34</div></div></div><!--
+--><div class="borderbox"><div class='outerbox' id=or3c5><div class='divbox' id=r3c5>35</div></div></div><br><!--
+--><div class="borderbox"><div class='outerbox' id=or4c1><div class='divbox' id=r4c1>41</div></div></div><!--
+--><div class="borderbox"><div class='outerbox' id=or4c2><div class='divbox' id=r4c2>42</div></div></div><!--
+--><div class="borderbox"><div class='outerbox' id=or4c3><div class='divbox' id=r4c3>43</div></div></div><!--
+--><div class="borderbox"><div class='outerbox' id=or4c4><div class='divbox' id=r4c4>44</div></div></div><!--
+--><div class="borderbox"><div class='outerbox' id=or4c5><div class='divbox' id=r4c5>45</div></div></div><br><!--
+--><div class="borderbox"><div class='outerbox' id=or5c1><div class='divbox' id=r5c1>51</div></div></div><!--
+--><div class="borderbox"><div class='outerbox' id=or5c2><div class='divbox' id=r5c2>52</div></div></div><!--
+--><div class="borderbox"><div class='outerbox' id=or5c3><div class='divbox' id=r5c3>53</div></div></div><!--
+--><div class="borderbox"><div class='outerbox' id=or5c4><div class='divbox' id=r5c4>54</div></div></div><!--
+--><div class="borderbox"><div class='outerbox' id=or5c5><div class='divbox' id=r5c5>55</div></div></div></center>
+</span>
+<br>
+<center>
+<button hidden type="button" onclick="LoadPage()">Reset!</button>
+ <h1 id=debug></h1>
+<p hidden id=timer></p><br>
+</center>
+</div></div>
+</BODY>
+</HTML>

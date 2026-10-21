@@ -28,7 +28,7 @@ If your browser restricts local files, run a simple local web server from this f
 - Uses pointer input for mouse and touch screens.
 - Uses a `Set` for faster dictionary membership checks.
 - Stops scoring when the timer reaches zero.
-- Awards 2 seconds for each valid word, plus extra time for bonus tiles used: +1 second for 2× letter, +2 seconds for 3× letter or 2× word, and +3 seconds for 3× word.
+- Uses the current authoritative scoring and timer rules in `SCORING-RULES.md`: +2 seconds per accepted word, +2/+3 seconds for 2LS/3LS and +2/+3 seconds for 2WS/3WS, plus the length-based Word Amplifier time reward, subject to per-word and 200-second overall caps.
 - Shows an animated time-bonus indicator and timer pulse after a valid word.
 - Shows end-of-round words found, longest word, highest-scoring word, average points per word, and a comparison against the previous personal best.
 - Shows the personal-best score and best-word details on the start screen.
@@ -106,3 +106,8 @@ Replacement tiles now flip in a staggered sequence (55 ms between flip starts; 1
 ## Progressive Web App (PWA) testing
 
 This build includes `manifest.webmanifest`, `service-worker.js`, launcher icons in `icons/`, and `js/pwa-register.js` for installable standalone-mode testing and offline app-shell caching. See [`PWA-INSTALL.md`](PWA-INSTALL.md) for Samsung Android / Chrome installation steps. Serve the project from HTTPS; opening `index.html` directly from a file manager or ZIP does not support PWA installation. Keep using the same site origin to retain that origin's local-storage statistics.
+
+
+## Authoritative scoring and timer rules
+
+`SCORING-RULES.md` is the canonical specification for word scoring, Word Amplifier, Chrono Combo, main-timer rewards/caps, saved time-earned metrics, and long-word Bomb/Swap charge eligibility. The game and deterministic tests use the shared pure calculation module `js/scoring-rules.js`. Run `node tests/scoring-rules.test.js` from the project root to verify its deterministic calculations.
