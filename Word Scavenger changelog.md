@@ -235,3 +235,48 @@ The history available for this update includes the changelog source, a Classic M
 - Added source guards for shared power-lock enforcement, Rotate-only timer pausing, and stale callback token checks.
 - JavaScript syntax, deterministic tests, manifest/app-shell reference checks, and ZIP integrity are required before packaging.
 - Interactive browser animation, timer behavior under real browser scheduling, and PWA install/offline behavior remain unverified unless separately tested.
+
+
+## 2026-10-21 — Phase 1C board powers and Phase 1D round records
+
+### Added
+- Added `js/game-logic.js` with pure board transformations and round-summary calculations, plus deterministic tests in `tests/game-logic.test.js`.
+- Added round-summary persistence for average points per valid word, with zero-word rounds safely reporting zero.
+
+### Changed
+- Routed Rotate, Swap, and Bomb board transformations through shared pure helpers to make tile identity and metadata preservation testable.
+- Rotate continues to map the 5×5 board clockwise; the center maps to itself.
+- Bomb gravity/refill now uses a pure transformation that explicitly preserves every unaffected position and moves tile objects intact into the target block.
+- Ending a round now cancels armed powers and pending refill/action callbacks, clears power-move transforms, and prevents stale animation frames from applying after cancellation.
+- Round Complete now derives average points per word from the same normalized round summary stored in Recent Games. The metric includes combo score and is zero for rounds with no accepted words.
+- Added the new logic module to the PWA app shell and bumped the cache version.
+
+### Verification
+- Deterministic tests passed for four clockwise rotations restoring the exact original tile objects/metadata, center-tile identity, Swap affecting exactly two positions, Bomb corner and middle targets, gravity/refill, unaffected-tile identity, and round-summary/score-breakdown arithmetic.
+- The existing scoring and charge tests passed. JavaScript syntax and archive integrity checks are included in the release validation.
+- Live browser animation, pointer-level Bomb preview, visual confirmation that unaffected tiles do not flip, actual localStorage persistence across screens, and PWA install/offline behavior remain unverified unless separately tested.
+
+
+## 2026-10-21 — Swap regression fix
+
+### Fixed
+- Fixed Swap throwing a `ReferenceError` during the swap animation because it referenced undefined `first` and `second` identifiers. The animation now tracks the two tile objects at `firstIndex` and `secondIndex`, preventing the exception that could leave the board action lock enabled.
+
+### Verification
+- Added a source regression guard for the Swap animation tile references.
+- Automated JavaScript syntax and deterministic test suites pass; live browser interaction still needs confirmation.
+
+## 2026-10-21 — UI/HUD refinement pass
+
+### Changed
+- Added each tile's existing letter-point value as a small subscript and displayed the tile's bonus type (`2L`, `3L`, `2W`, or `3W`) as a superscript badge.
+- Removed the separate bonus-tile legend; bonus identity is now shown directly on the relevant tiles.
+- Reworked the theme control from a floating fixed-position toggle into a Settings / Appearance screen with explicit Classic and Style 2 choices. The existing `wordScavengerTheme` local-storage key and `theme-style2` body class are retained.
+- Added ready/locked visual states to power controls based on the existing charge, round, and board-lock conditions.
+- Added responsive styling for tile annotations, HUD feedback areas, power controls, and theme choices while retaining the two existing stylesheet palettes.
+
+### Verification
+- JavaScript syntax checks passed for `js/game.js` and `js/theme-toggle.js`.
+- Existing scoring-rule tests passed.
+- Existing game-logic tests passed, including rotation, randomize metadata, swap, bomb gravity/refill, round summary, persistence guards, and game-over cancellation guards.
+- Browser-level visual inspection, touch interaction, theme persistence across reloads, and the complete end-to-end UI regression checklist have not been verified in a real browser in this run.

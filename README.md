@@ -116,3 +116,13 @@ This build includes `manifest.webmanifest`, `service-worker.js`, launcher icons 
 ### Phase 1B power-charge milestone rule
 
 Words of 6 or more letters do not count toward the Bomb or Swap regular milestones. Bomb can award an immediate charge at 6+ letters; Swap can award one at 7+ letters. Such words preserve regular milestone progress. See `SCORING-RULES.md`.
+
+
+### Deterministic regression tests
+
+From the project root, run:
+
+- `node tests/scoring-rules.test.js` — scoring, timer rewards, combo transitions, charge thresholds, and source guards.
+- `node tests/game-logic.test.js` — clockwise rotation and four-turn identity, tile-preserving swap, Bomb gravity/refill invariants, and round-summary arithmetic.
+
+These tests validate pure logic and source-level invariants. They do not substitute for live browser testing of animations, pointer targeting, localStorage, or PWA installation/offline behavior.

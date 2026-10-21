@@ -60,3 +60,19 @@ The score breakdown is additive: `base letter/word-bonus score + Word Amplifier 
 ## Deterministic verification
 
 Run `node tests/scoring-rules.test.js` from the project root. This checks scoring arithmetic, word-length tiers, additive time rewards, per-word and overall caps, combo progression/expiry, charge milestone exclusion/progress, and static animation-lock/timer-policy guards. These tests do not replace interactive browser regression testing.
+
+
+## Round summary and persistent records
+
+- A completed round stores `finalScore`, `wordsFound`, `longestWord`, `highestWord`, `highestWordScore`, `averagePointsPerWord`, `highestCombo`, `timeBonusSeconds`, and the additive score-breakdown components.
+- `averagePointsPerWord` is `finalScore / wordsFound` (zero for a round with no valid words); it includes Chrono Combo score because the metric is average total points per accepted word.
+- The score breakdown must satisfy `wordAndTileScore + amplifierBonus + comboBonus = finalScore`.
+- Main-menu personal best, Stats, Recent Games, and Round Complete must read the same persisted `wordScavengerBrowserStats` record. A new round resets transient counters and armed powers but must not erase that persistent record.
+
+## Board-power invariants
+
+- Rotate maps the 5×5 matrix 90 degrees clockwise using tile-object identity, so letters and bonus metadata move together; the center tile maps to itself and four rotations restore the original arrangement.
+- Randomize replaces only the chosen tile's letter. The tile object is copied with all other properties, including bonus metadata, and one charge is deducted once per accepted activation.
+- Bomb clears the selected 2×2 block, lets tiles above fall into those positions, generates replacements only in the newly empty cells above, and leaves all other columns and tiles below the block unchanged.
+- Swap exchanges two tile objects and leaves every other board position unchanged.
+- Ending a round invalidates scheduled refill/action callbacks so they cannot mutate the completed board after game-over.

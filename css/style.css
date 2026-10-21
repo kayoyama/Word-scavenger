@@ -485,3 +485,33 @@ button:focus-visible { outline: 3px solid #ffe66d; outline-offset: 3px; }
   .bomb-target-preview { animation: none; }
   .tile.bomb-exploding { animation-duration: .01ms; }
 }
+
+
+/* HUD refinement: stable feedback regions and in-tile scoring metadata. */
+.game-header { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+.game-header > .small-button { grid-column: 1 / -1; justify-self: start; }
+.timer-block, .score-block { min-height: 48px; position: relative; }
+.time-bonus, .score-gain { display: block; min-height: 16px; line-height: 16px; white-space: nowrap; }
+.combo-slot { pointer-events: none; }
+.tile { display: grid; grid-template-columns: 1fr auto; grid-template-rows: 1fr auto; align-items: center; justify-items: center; }
+.tile-letter { grid-column: 1 / -1; grid-row: 1 / -1; align-self: center; justify-self: center; }
+.tile-value { position: absolute; right: 15%; bottom: 12%; font-size: clamp(9px, 2vw, 14px); line-height: 1; font-weight: 900; text-shadow: none; opacity: .95; }
+.tile-bonus-mark { position: absolute; top: 8%; right: 8%; font-size: clamp(8px, 1.8vw, 12px); line-height: 1; font-weight: 1000; letter-spacing: -.03em; text-shadow: none; }
+.tile.bonus-2ls .tile-bonus-mark, .tile.bonus-3ls .tile-bonus-mark, .tile.bonus-2ws .tile-bonus-mark, .tile.bonus-3ws .tile-bonus-mark { color: #fff; background: rgba(0,20,45,.58); border-radius: 4px; padding: 2px; }
+.tile.selected .tile-value { color: #fff; }
+.bonus-legend { display: none !important; }
+.power-ready { box-shadow: 0 0 0 1px rgba(255,220,91,.6), 0 0 12px rgba(255,210,64,.18); }
+.power-locked:disabled { opacity: .48; filter: saturate(.55); cursor: not-allowed; }
+.power-ready:not(:disabled) .action-count { color: #ffe66d; font-weight: 900; }
+.settings-screen { padding: max(18px, env(safe-area-inset-top)) 16px 30px; background: inherit; color: white; }
+.settings-screen .screen-header { max-width: 560px; }
+.settings-screen .screen-header h2 { font-size: clamp(19px, 4vw, 26px); }
+.appearance-card { width: min(560px, 100%); margin: 0 auto; padding: 22px; border: 1px solid rgba(255,255,255,.3); border-radius: 16px; background: rgba(0,28,48,.4); }
+.appearance-card h3 { margin-top: 0; }
+.appearance-card p { color: #d5eaf2; }
+.theme-choice-row { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.theme-choice { min-height: 90px; padding: 14px 8px; border: 1px solid rgba(255,255,255,.5); border-radius: 12px; background: rgba(0,65,95,.5); color: white; font-weight: 900; }
+.theme-choice small { display: inline-block; margin-top: 6px; font-weight: 600; }
+.theme-choice.selected-theme { border: 2px solid #ffe66d; box-shadow: 0 0 14px rgba(255,220,90,.3); }
+@media (max-width: 380px) { .tile-value { right: 10%; bottom: 10%; font-size: 9px; } .tile-bonus-mark { top: 6%; right: 5%; font-size: 8px; } .game-header { gap: 5px; } .timer-block, .score-block { min-width: 0; } .theme-choice-row { gap: 8px; } }
+@media (min-width: 700px) { .game-header, .word-display { width: min(620px,100%); } .board-stage { width: min(92vw, 58vh, 560px); } }

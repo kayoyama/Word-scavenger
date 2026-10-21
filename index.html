@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="css/style.css">
   <script defer src="js/wordlist.js"></script>
   <script defer src="js/scoring-rules.js"></script>
+  <script defer src="js/game-logic.js"></script>
   <script defer src="js/game.js"></script>
   <script defer src="js/theme-toggle.js"></script>
   <script defer src="js/pwa-register.js"></script>
@@ -41,6 +42,7 @@
       <div class="menu-actions">
         <button id="new-game-button" class="menu-button primary">New Game</button>
         <button id="stats-button" class="menu-button">Stats</button>
+        <button id="settings-button" class="menu-button">Settings / Appearance</button>
       </div>
       <p class="menu-note">A 2-minute word challenge</p>
 
@@ -99,6 +101,23 @@
       </section>
     </section>
 
+
+    <section id="settings-screen" class="screen settings-screen" hidden>
+      <header class="screen-header">
+        <button id="settings-back-button" class="small-button">← Menu</button>
+        <h2>Settings / Appearance</h2>
+        <span class="header-spacer"></span>
+      </header>
+      <section class="appearance-card">
+        <h3>Theme</h3>
+        <p>Choose your preferred Word Scavenger color style.</p>
+        <div class="theme-choice-row">
+          <button id="theme-classic-choice" class="theme-choice" type="button">Classic<br><small>Dark Blue + Gold</small></button>
+          <button id="theme-style2-choice" class="theme-choice" type="button">Style 2<br><small>Electric Blue + Gold</small></button>
+        </div>
+      </section>
+    </section>
+
     <section id="game-screen" class="screen game-screen" hidden>
       <header class="game-header">
         <button id="game-menu-button" class="small-button">← Menu</button>
@@ -134,12 +153,6 @@
 
       <div class="game-footer">
         <div class="last-score-line" hidden="true"><span>Last word</span><strong id="last-word">—</strong><span class="last-points" id="last-points">+0</span></div>
-        <div class="bonus-legend" aria-label="Bonus tile legend">
-          <span><i class="legend-tile bonus-2ls"></i>2× letter</span>
-          <span><i class="legend-tile bonus-3ls"></i>3× letter</span>
-          <span><i class="legend-tile bonus-2ws"></i>2× word</span>
-          <span><i class="legend-tile bonus-3ws"></i>3× word</span>
-        </div>
       </div>
 
       <div id="countdown-overlay" class="countdown-overlay" hidden aria-live="assertive">

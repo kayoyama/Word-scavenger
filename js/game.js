@@ -24,6 +24,7 @@
   };
   const LETTER_POINTS = [0, 16, 34, 32, 23, 14, 42, 24, 41, 16, 81, 52, 22, 32, 19, 18, 34, 102, 19, 22, 19, 22, 45, 42, 82, 42, 101];
   const scoringRules = window.WordScoringRules;
+  const gameLogic = window.WordGameLogic;
 
   const el = (id) => document.getElementById(id);
   const frontScreen = el('front-screen');
@@ -167,6 +168,7 @@
   function showScreen(screen) {
     frontScreen.hidden = screen !== 'front';
     statsScreen.hidden = screen !== 'stats';
+    el('settings-screen').hidden = screen !== 'settings';
     gameScreen.hidden = screen !== 'game';
     if (screen !== 'front') el('tutorial-overlay').hidden = true;
   }
@@ -206,8 +208,13 @@
     button.dataset.index = String(index);
     button.dataset.letter = letter;
     button.dataset.bonus = bonus;
-    button.textContent = letter;
-    button.setAttribute('aria-label', `Row ${Math.floor(index / SIZE) + 1}, column ${(index % SIZE) + 1}, letter ${letter}${bonus === 'NO' ? '' : `, ${bonus}`}`);
+    const letterValue = LETTER_POINTS[letter.charCodeAt(0) - 64] || 0;
+    const bonusLabel = ({ '2LS': '2L', '3LS': '3L', '2WS': '2W', '3WS': '3W' })[bonus] || '';
+    const face = document.createElement('span'); face.className = 'tile-letter'; face.textContent = letter;
+    const value = document.createElement('sub'); value.className = 'tile-value'; value.textContent = String(letterValue);
+    button.append(face, value);
+    if (bonusLabel) { const mark = document.createElement('sup'); mark.className = 'tile-bonus-mark'; mark.textContent = bonusLabel; button.appendChild(mark); }
+    button.setAttribute('aria-label', `Row ${Math.floor(index / SIZE) + 1}, column ${(index % SIZE) + 1}, letter ${letter}, ${letterValue} points${bonus === 'NO' ? '' : `, ${bonus}`}`);
     return button;
   }
 
@@ -236,6 +243,7 @@
     randomizeButton.disabled = !roundActive || boardLocked || (randomizeCharges <= 0 && !randomizeMode);
     bombButton.disabled = !roundActive || boardLocked || (bombCharges <= 0 && !bombMode);
     swapButton.disabled = !roundActive || boardLocked || (swapCharges <= 0 && !swapMode);
+    [[rotateButton, rotateCharges > 0], [randomizeButton, randomizeCharges > 0 || randomizeMode], [bombButton, bombCharges > 0 || bombMode], [swapButton, swapCharges > 0 || swapMode]].forEach(([button, ready]) => { button.classList.toggle('power-ready', Boolean(ready) && !button.disabled); button.classList.toggle('power-locked', button.disabled); });
     board.classList.toggle('board-actions-locked', boardLocked);
     randomizeButton.classList.toggle('action-armed', randomizeMode);
     bombButton.classList.toggle('action-armed', bombMode);
@@ -398,7 +406,7 @@
     return positions;
   }
 
-  function animateTilePositions(oldPositions, movedTileData, newTileData = [], duration = 300) {
+  function animateTilePositions(oldPositions, movedTileData, newTileData = [], duration = 300, token = refillToken) {
     const animated = [];
     tiles.forEach((tileData, index) => {
       const element = board.querySelector(`[data-index="${index}"]`);
@@ -417,6 +425,7 @@
     });
     void board.offsetWidth;
     requestAnimationFrame(() => {
+      if (token !== refillToken) return;
       animated.forEach((element) => {
         element.style.transition = `transform ${duration}ms cubic-bezier(.2,.72,.25,1)`;
         element.style.transform = 'translate(0, 0)';
@@ -443,36 +452,10 @@
     const token = refillToken;
     // Keep the old board in place for the explosion; mutate/refill only after it finishes.
     scheduleRefillTimer(() => {
-      const changedData = new Set();
-      const newData = new Set();
-      const changedColumns = [col, col + 1];
-      changedColumns.forEach((column) => {
-        const originalColumn = Array.from({ length: SIZE }, (_, r) => tiles[r * SIZE + column]);
-        const newColumn = originalColumn.slice();
-        // The two tiles above the target fall into the cleared block. Empty positions
-        // above them receive fresh tiles; rows below the block remain untouched.
-        for (let r = 0; r < row; r += 1) {
-          newColumn[r] = { letter: drawLetter(), bonus: drawBonus() };
-          newData.add(newColumn[r]);
-        }
-        for (let offset = 0; offset < 2; offset += 1) {
-          const destinationRow = row + offset;
-          const sourceRow = destinationRow - 2;
-          if (sourceRow >= 0) {
-            newColumn[destinationRow] = originalColumn[sourceRow];
-            changedData.add(originalColumn[sourceRow]);
-          } else {
-            newColumn[destinationRow] = { letter: drawLetter(), bonus: drawBonus() };
-            newData.add(newColumn[destinationRow]);
-          }
-        }
-        for (let r = 0; r < SIZE; r += 1) {
-          if (r !== row && r !== row + 1 && r >= row + 2) newColumn[r] = originalColumn[r];
-          tiles[r * SIZE + column] = newColumn[r];
-        }
-      });
+      const bombResult = gameLogic.bombClearAndGravity(tiles, SIZE, row, col, () => ({ letter: drawLetter(), bonus: drawBonus() }));
+      tiles = bombResult.tiles;
       renderBoard();
-      animateTilePositions(oldPositions, changedData, newData, 300);
+      animateTilePositions(oldPositions, bombResult.movedTiles, bombResult.newTiles, 300, token);
       renderActionCharges();
       el('word-feedback').textContent = 'Bomb used · tiles exploded and fell';
       scheduleRefillTimer(() => {
@@ -486,19 +469,19 @@
   function useSwap(firstIndex, secondIndex) {
     if (!swapMode || swapCharges <= 0 || firstIndex === secondIndex || !roundActive || isPowerActionLocked() || !Number.isInteger(firstIndex) || !Number.isInteger(secondIndex) || firstIndex < 0 || secondIndex < 0 || firstIndex >= tiles.length || secondIndex >= tiles.length) return false;
     const oldPositions = captureTilePositions();
-    const first = tiles[firstIndex];
-    const second = tiles[secondIndex];
-    tiles[firstIndex] = second;
-    tiles[secondIndex] = first;
+    tiles = gameLogic.swapTiles(tiles, firstIndex, secondIndex);
+    // Keep references to the two tile objects that changed positions. Using
+    // undefined names here throws after actionBusy is set and leaves the board locked.
+    const swappedTileData = new Set([tiles[firstIndex], tiles[secondIndex]]);
     swapCharges -= 1;
     cancelPowerModes();
     selectedIndices = [];
     isSelecting = false;
     setActionsBusy(true);
-    renderBoard();
-    animateTilePositions(oldPositions, new Set([first, second]), new Set(), 220);
-    el('word-feedback').textContent = 'Swap complete';
     const token = refillToken;
+    renderBoard();
+    animateTilePositions(oldPositions, swappedTileData, new Set(), 220, token);
+    el('word-feedback').textContent = 'Swap complete';
     scheduleRefillTimer(() => {
       setActionsBusy(false);
     }, 260, token);
@@ -535,13 +518,7 @@
     const chronoWasRunning = pauseChronoComboTimer();
     setActionsBusy(true);
 
-    const oldTiles = tiles.slice();
-    const rotated = new Array(SIZE * SIZE);
-    for (let row = 0; row < SIZE; row += 1) {
-      for (let col = 0; col < SIZE; col += 1) {
-        rotated[row * SIZE + col] = oldTiles[(SIZE - 1 - col) * SIZE + row];
-      }
-    }
+    const rotated = gameLogic.rotateClockwise(tiles, SIZE);
 
     const token = refillToken;
     const animationDuration = 400;
@@ -635,7 +612,7 @@
           const current = tiles[index];
           if (!current) return;
           // Keep bonus metadata (and therefore its theme-specific color) unchanged.
-          tiles[index] = { ...current, letter: pickDifferentLetter(current.letter) };
+          tiles[index] = gameLogic.withRandomizedLetter(current, pickDifferentLetter(current.letter));
           updateTileElement(index);
           const updated = board.querySelector(`[data-index="${index}"]`);
           if (updated) updated.classList.add('tile-flip', 'action-tile-flip');
@@ -667,8 +644,14 @@
     if (bonusClass) tileElement.classList.add(bonusClass);
     tileElement.dataset.letter = tileData.letter;
     tileElement.dataset.bonus = tileData.bonus;
-    tileElement.textContent = tileData.letter;
-    tileElement.setAttribute('aria-label', `Row ${Math.floor(index / SIZE) + 1}, column ${(index % SIZE) + 1}, letter ${tileData.letter}${tileData.bonus === 'NO' ? '' : `, ${tileData.bonus}`}`);
+    tileElement.replaceChildren();
+    const letterValue = LETTER_POINTS[tileData.letter.charCodeAt(0) - 64] || 0;
+    const face = document.createElement('span'); face.className = 'tile-letter'; face.textContent = tileData.letter;
+    const value = document.createElement('sub'); value.className = 'tile-value'; value.textContent = String(letterValue);
+    tileElement.append(face, value);
+    const bonusLabel = ({ '2LS': '2L', '3LS': '3L', '2WS': '2W', '3WS': '3W' })[tileData.bonus];
+    if (bonusLabel) { const mark = document.createElement('sup'); mark.className = 'tile-bonus-mark'; mark.textContent = bonusLabel; tileElement.appendChild(mark); }
+    tileElement.setAttribute('aria-label', `Row ${Math.floor(index / SIZE) + 1}, column ${(index % SIZE) + 1}, letter ${tileData.letter}, ${letterValue} points${tileData.bonus === 'NO' ? '' : `, ${tileData.bonus}`}`);
   }
 
   function scheduleRefillTimer(callback, delay, token) {
@@ -695,8 +678,10 @@
     refillToken += 1;
     refillTimers.forEach((timer) => window.clearTimeout(timer));
     refillTimers.clear();
-    board.querySelectorAll('.tile-flip, .tile-refill-locked, .bonus-hit').forEach((tile) => {
-      tile.classList.remove('tile-flip', 'tile-refill-locked', 'bonus-hit');
+    board.querySelectorAll('.tile-flip, .tile-refill-locked, .bonus-hit, .power-move-animated').forEach((tile) => {
+      tile.classList.remove('tile-flip', 'tile-refill-locked', 'bonus-hit', 'power-move-animated');
+      tile.style.transition = '';
+      tile.style.transform = '';
     });
     lockedTileIndices.clear();
     actionBusy = false;
@@ -829,6 +814,7 @@
 
   function startGame() {
     hideChronoCombo();
+    cancelPowerModes();
     stopTimers();
     cancelRefillSequence();
     makeLetterBag();
@@ -1108,6 +1094,8 @@
     roundActive = false;
     isSelecting = false;
     selectedIndices = [];
+    cancelPowerModes();
+    cancelRefillSequence();
     hideChronoCombo();
     stopTimers();
     clearSelectionStyles();
@@ -1127,7 +1115,7 @@
       stats.bestWord = sessionHighestWord;
     }
     const elapsedSeconds = Math.max(0, ROUND_SECONDS + sessionTimeBonus - secondsLeft);
-    stats.rounds.unshift({
+    const roundRecord = gameLogic.summarizeRound({
       finalScore: totalScore,
       wordsFound: sessionWords,
       longestWord: sessionLongestWord,
@@ -1138,6 +1126,10 @@
       amplifierBonus: sessionAmplifierBonus,
       comboBonus: sessionComboBonus,
       highestCombo: sessionHighestCombo,
+      durationSeconds: elapsedSeconds
+    });
+    stats.rounds.unshift({
+      ...roundRecord,
       durationSeconds: elapsedSeconds,
       completedAt: new Date().toISOString(),
       newPersonalBest: isNewBestScore
@@ -1150,7 +1142,7 @@
     el('result-longest-length').textContent = `${sessionLongestWord.length} ${sessionLongestWord.length === 1 ? 'letter' : 'letters'}`;
     el('result-highest-word').textContent = sessionHighestWord || '—';
     el('result-highest-points').textContent = `${sessionHighestWordScore} ${sessionHighestWordScore === 1 ? 'point' : 'points'}`;
-    el('result-average-score').textContent = sessionWords ? (totalScore / sessionWords).toFixed(1) : '0';
+    el('result-average-score').textContent = roundRecord.averagePointsPerWord.toFixed(1);
     el('result-word-score').textContent = sessionWordAndTileScore.toLocaleString();
     el('result-amplifier-score').textContent = `+${sessionAmplifierBonus.toLocaleString()}`;
     el('result-combo-score').textContent = `+${sessionComboBonus.toLocaleString()}`;
@@ -1501,6 +1493,10 @@
   el('tutorial-skip-button').addEventListener('click', dismissTutorialAndStart);
   el('stats-button').addEventListener('click', () => { renderStats(); showScreen('stats'); });
   el('stats-back-button').addEventListener('click', () => showScreen('front'));
+  el('settings-button').addEventListener('click', () => showScreen('settings'));
+  el('settings-back-button').addEventListener('click', () => showScreen('front'));
+  el('theme-classic-choice').addEventListener('click', () => document.body.classList.remove('theme-style2'));
+  el('theme-style2-choice').addEventListener('click', () => document.body.classList.add('theme-style2'));
   el('game-menu-button').addEventListener('click', () => { roundActive = false; hideChronoCombo(); stopTimers(); cancelPowerModes(); cancelRefillSequence(); showScreen('front'); });
   el('rotate-action').addEventListener('click', rotateBoardClockwise);
   el('randomize-action').addEventListener('click', armRandomize);
