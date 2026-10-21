@@ -23,6 +23,7 @@
     '2WS': 'bonus-2ws', '3WS': 'bonus-3ws'
   };
   const LETTER_POINTS = [0, 16, 34, 32, 23, 14, 42, 24, 41, 16, 81, 52, 22, 32, 19, 18, 34, 102, 19, 22, 19, 22, 45, 42, 82, 42, 101];
+  const scoringRules = window.WordScoringRules;
 
   const el = (id) => document.getElementById(id);
   const frontScreen = el('front-screen');
@@ -249,14 +250,14 @@
     // A qualifying long word OR a word-count milestone grants one charge, never both.
     if (bombCharges < BOMB_CHARGE_CAP) {
       bombWordProgress += 1;
-      if (wordLength === 6 || bombWordProgress >= BOMB_WORDS_PER_CHARGE) {
+      if (scoringRules.qualifiesForLongWordCharge(wordLength, 6) || bombWordProgress >= BOMB_WORDS_PER_CHARGE) {
         bombCharges += 1;
         bombWordProgress = 0;
       }
     } else bombWordProgress = 0;
     if (swapCharges < SWAP_CHARGE_CAP) {
       swapWordProgress += 1;
-      if (wordLength === 7 || swapWordProgress >= SWAP_WORDS_PER_CHARGE) {
+      if (scoringRules.qualifiesForLongWordCharge(wordLength, 7) || swapWordProgress >= SWAP_WORDS_PER_CHARGE) {
         swapCharges += 1;
         swapWordProgress = 0;
       }
@@ -934,24 +935,18 @@
     if (secondsLeft === 0) endGame();
   }
 
-  // Every valid word earns 2 seconds. Bonus tiles add extra time by type.
+  // Every accepted valid word receives one additive time award from the authoritative rules.
   function awardTimeBonus(indices) {
-    const bonusSeconds = { NO: 0, '2LS': 2, '3LS': 3, '2WS': 2, '3WS': 3 };
-    const extra = indices.reduce((sum, index) => sum + (bonusSeconds[tiles[index].bonus] || 0), 0);
-    const amplifierSeconds = [0, 0, 0, 0, 5, 10, 15, 20][Math.min(indices.length, 7)] || 0;
-    const requested = 2 + extra + amplifierSeconds;
-    const perWordCaps = [0, 0, 0, 10, 15, 20, 25, 30];
-    const wordCap = perWordCaps[Math.min(indices.length, 7)] || 30;
-    const cappedRequested = Math.min(requested, wordCap);
-    const added = Math.max(0, Math.min(cappedRequested, MAX_TIME_SECONDS - secondsLeft));
-    secondsLeft += added;
+    const award = scoringRules.calculateTimeAward(tiles, indices, secondsLeft, MAX_TIME_SECONDS);
+    const added = award.added;
+    secondsLeft = award.newSecondsLeft;
     sessionTimeBonus += added;
     updateCountdown();
 
     const indicator = el('time-bonus');
     indicator.textContent = added === 0
       ? 'TIME MAX'
-      : (extra > 0 ? `+${added}s BONUS` : `+${added}s`);
+      : (award.extra > 0 ? `+${added}s BONUS` : `+${added}s`);
     indicator.classList.remove('time-bonus-show');
     // Force a fresh animation when words are found in quick succession.
     void indicator.offsetWidth;
@@ -1068,46 +1063,33 @@
     }
 
     const now = Date.now();
-    const comboIsActive = chronoComboLevel > 0 && now < chronoComboDeadline;
-
     if (chronoComboClearTimeout !== null) {
       window.clearTimeout(chronoComboClearTimeout);
       chronoComboClearTimeout = null;
     }
     chronoComboIndicator?.classList.remove('chrono-combo-expired');
 
-    // A word found after the countdown expires starts a new streak.
-    chronoComboLevel = comboIsActive ? chronoComboLevel + 1 : 1;
-
-    let requestedReward = 0;
-    let rewardPoints = 0;
-    if (chronoComboLevel === 2) { requestedReward = 3; rewardPoints = 100; }
-    else if (chronoComboLevel === 3) { requestedReward = 4; rewardPoints = 300; }
-    else if (chronoComboLevel >= 4) { requestedReward = 5; rewardPoints = 500; }
-
-    // First valid word starts a 7-second combo window.
-    // For consecutive words, add only the listed reward to the time remaining;
-    // do not reset the countdown first. Cap the combo countdown at 20 seconds.
-    // Chrono Combo must never modify the main round timer.
-    if (!comboIsActive) {
-      chronoComboDeadline = now + CHRONO_COMBO_WINDOW_MS;
-    } else {
-      const cappedDeadline = now + (CHRONO_COMBO_MAX_SECONDS * 1000);
-      chronoComboDeadline = Math.min(
-        cappedDeadline,
-        chronoComboDeadline + (requestedReward * 1000)
-      );
-    }
+    const transition = scoringRules.calculateComboTransition(
+      chronoComboLevel,
+      chronoComboDeadline,
+      now,
+      CHRONO_COMBO_WINDOW_MS,
+      CHRONO_COMBO_MAX_SECONDS
+    );
+    chronoComboLevel = transition.level;
+    chronoComboDeadline = transition.deadline;
+    const requestedReward = transition.requestedReward;
+    const rewardPoints = transition.rewardPoints;
 
     stopChronoComboTicker();
     renderChronoCombo();
     chronoComboIntervalId = window.setInterval(renderChronoCombo, 100);
     return {
-      level: chronoComboLevel,
-      rewardSeconds: requestedReward,
+      level: transition.level,
+      rewardSeconds: transition.rewardSeconds,
       requestedReward,
       rewardPoints,
-      secondsRemaining: Math.min(CHRONO_COMBO_MAX_SECONDS, Math.max(0, Math.ceil((chronoComboDeadline - now) / 1000)))
+      secondsRemaining: transition.secondsRemaining
     };
   }
 
@@ -1272,32 +1254,7 @@
   }
 
   function scoreWord(indices) {
-    let base = 0;
-    let wordMultiplier = 1;
-    indices.forEach((index) => {
-      const tile = tiles[index];
-      let letterMultiplier = 1;
-      if (tile.bonus === '2LS') letterMultiplier = 2;
-      if (tile.bonus === '3LS') letterMultiplier = 3;
-      if (tile.bonus === '2WS') wordMultiplier *= 2;
-      if (tile.bonus === '3WS') wordMultiplier *= 3;
-      const letterIndex = tile.letter.charCodeAt(0) - 64;
-      base += (LETTER_POINTS[letterIndex] || 0) * letterMultiplier;
-    });
-    const baseTotal = base * wordMultiplier;
-    const amplifierMultiplier = indices.length >= 7 ? 2
-      : (indices.length === 6 ? 1.75
-        : (indices.length === 5 ? 1.5
-          : (indices.length === 4 ? 1.25 : 1)));
-    const total = Math.round(baseTotal * amplifierMultiplier);
-    return {
-      base,
-      multiplier: wordMultiplier,
-      baseTotal,
-      amplifierMultiplier,
-      amplifierBonus: total - baseTotal,
-      total
-    };
+    return scoringRules.calculateWordScore(tiles, indices, LETTER_POINTS);
   }
 
   function tileIndexFromPoint(x, y) {
