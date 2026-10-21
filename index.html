@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#005f85">
+  <meta name="theme-color" content="#071b35">
   <meta name="description" content="Word Scavenger — find words, score points, and beat the clock.">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -120,17 +120,19 @@
 
     <section id="game-screen" class="screen game-screen" hidden>
       <header class="game-header">
-        <button id="game-menu-button" class="small-button">← Menu</button>
         <div class="timer-block"><span>TIME</span><strong id="countdown">02:00</strong><span id="time-bonus" class="time-bonus" aria-live="polite"></span></div>
+        <button id="pause-button" class="pause-button" type="button" aria-label="Pause game" title="Pause game">Ⅱ</button>
         <div class="score-block"><span>SCORE</span><strong id="score">0</strong><span id="score-gain" class="score-gain" aria-live="polite"></span></div>
       </header>
-
-      <div id="combo-slot" class="combo-slot" aria-live="polite"></div>
 
       <div class="word-display" aria-live="polite">
         <div id="current-word" class="current-word">Find a word</div>
         <div id="word-feedback" class="word-feedback">Drag across letters to select them</div>
       </div>
+
+      <div class="reward-feedback-row" aria-hidden="true"></div>
+
+      <div id="combo-slot" class="combo-slot" aria-live="polite"></div>
 
       <div class="board-actions" aria-label="Board actions">
         <button id="rotate-action" class="board-action rotate-action" type="button" disabled>
@@ -153,6 +155,15 @@
 
       <div class="game-footer">
         <div class="last-score-line" hidden="true"><span>Last word</span><strong id="last-word">—</strong><span class="last-points" id="last-points">+0</span></div>
+      </div>
+
+      <div id="pause-overlay" class="modal-overlay pause-overlay" hidden>
+        <section class="pause-card" role="dialog" aria-modal="true" aria-labelledby="pause-title">
+          <p class="eyebrow">ROUND PAUSED</p>
+          <h2 id="pause-title">Take a breather</h2>
+          <button id="resume-button" class="menu-button primary" type="button">Resume</button>
+          <button id="game-menu-button" class="menu-button" type="button">← Main Menu</button>
+        </section>
       </div>
 
       <div id="countdown-overlay" class="countdown-overlay" hidden aria-live="assertive">

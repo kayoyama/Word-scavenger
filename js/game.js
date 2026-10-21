@@ -22,7 +22,7 @@
     NO: '', '2LS': 'bonus-2ls', '3LS': 'bonus-3ls',
     '2WS': 'bonus-2ws', '3WS': 'bonus-3ws'
   };
-  const LETTER_POINTS = [0, 16, 34, 32, 23, 14, 42, 24, 41, 16, 81, 52, 22, 32, 19, 18, 34, 102, 19, 22, 19, 22, 45, 42, 82, 42, 101];
+  const LETTER_POINTS = [0, 16, 34, 32, 23, 14, 42, 21, 41, 16, 81, 52, 22, 32, 19, 18, 34, 102, 19, 12, 19, 16, 45, 42, 82, 42, 101];
   const scoringRules = window.WordScoringRules;
   const gameLogic = window.WordGameLogic;
 
@@ -43,6 +43,8 @@
   let selectedIndices = [];
   let isSelecting = false;
   let roundActive = false;
+  let isPaused = false;
+  let pausedComboTimer = false;
   let actionBusy = false;
   let rotateCharges = 0;
   let randomizeCharges = 0;
@@ -95,19 +97,19 @@
 
     const style = document.createElement('style');
     style.textContent = `
-      .chrono-combo { position: absolute; z-index: 7; left: 50%; top: -18px; transform: translateX(-50%); display: block; min-width: 142px; padding: 5px 12px 6px; border: 1px solid rgba(111,239,255,.92); border-radius: 999px; background: rgba(0,49,70,.94); box-shadow: 0 0 10px rgba(39,220,255,.45), inset 0 0 6px rgba(255,255,255,.10); color: #e9fdff; font-size: 11px; font-weight: 1000; line-height: 1.15; letter-spacing: .045em; text-align: center; white-space: nowrap; opacity: 1; transition: color .15s ease, box-shadow .15s ease; pointer-events: none; }
+      .chrono-combo { position: relative; z-index: 7; left: auto; top: auto; transform: none; display: block; width: fit-content; margin: 0 auto; min-width: 142px; padding: 5px 12px 6px; border: 1px solid rgba(255,220,91,.86); border-radius: 999px; background: rgba(5,24,48,.96); box-shadow: 0 0 10px rgba(255,210,64,.25), inset 0 0 6px rgba(255,255,255,.10); color: #fff0a0; font-size: 11px; font-weight: 1000; line-height: 1.15; letter-spacing: .045em; text-align: center; white-space: nowrap; opacity: 1; transition: color .15s ease, box-shadow .15s ease; pointer-events: none; }
       .chrono-combo[hidden] { display: none !important; }
       .chrono-combo.chrono-combo-active { animation: combo-energy .45s ease-out; }
-      .chrono-combo.chrono-combo-hot { color: #fff3a0; border-color: #fff18b; background: linear-gradient(135deg, #5b2b00, #c46b00 55%, #5b2b00); box-shadow: 0 0 16px rgba(255,197,54,.95), inset 0 0 8px rgba(255,255,255,.2); }
-      .chrono-combo.chrono-combo-expired { color: #ffe2dc; border-color: #ff9385; background: linear-gradient(135deg, #541c2a, #a43b45); animation: chrono-combo-expired .35s ease-out; }
+      .chrono-combo.chrono-combo-hot { color: #fff3a0; border-color: #fff18b; background: linear-gradient(135deg, #493400, #946d00 55%, #493400); box-shadow: 0 0 16px rgba(255,197,54,.65), inset 0 0 8px rgba(255,255,255,.2); }
+      .chrono-combo.chrono-combo-expired { color: #d9e8f7; border-color: #7191b8; background: linear-gradient(135deg, #102744, #1d3d62); animation: chrono-combo-expired .35s ease-out; }
       @keyframes combo-energy { 0% { opacity: .5; filter: brightness(1.8); transform: scale(.72); } 70% { opacity: 1; transform: scale(1.12); } 100% { transform: scale(1); } }
       @keyframes chrono-combo-expired { 0% { filter: brightness(1.7); transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); opacity: .85; } }
       .score-gain.amplifier-burst { color: #fff2a0 !important; text-shadow: 0 0 5px #ffb000, 0 0 12px #ff5e00; }
-      .score-gain.combo-burst { color: #bafaff !important; text-shadow: 0 0 5px #00d9ff, 0 0 13px #168cff; }
-      .score-gain.amplifier-burst.combo-burst { color: #fff4bd !important; text-shadow: 0 0 6px #ffd84d, 0 0 13px #ff7b00, 0 0 20px #00d9ff; }
-      .score-gain.amplifier-burst.score-gain-show { animation: reward-amplifier-pop 1.15s ease-out both; }
-      .score-gain.combo-burst.score-gain-show { animation: reward-combo-pop 1.15s cubic-bezier(.2,.8,.2,1) both; }
-      .score-gain.amplifier-burst.combo-burst.score-gain-show { animation: reward-combined-pop 1.2s ease-out both; }
+      .score-gain.combo-burst { color: #d8eaff !important; text-shadow: 0 0 5px #398bff, 0 0 13px #168cff; }
+      .score-gain.amplifier-burst.combo-burst { color: #fff4bd !important; text-shadow: 0 0 6px #ffd84d, 0 0 13px #c28a19, 0 0 20px #398bff; }
+      .score-gain.amplifier-burst.score-gain-show { animation: reward-amplifier-pop 3.8s ease-out both; }
+      .score-gain.combo-burst.score-gain-show { animation: reward-combo-pop 3.8s cubic-bezier(.2,.8,.2,1) both; }
+      .score-gain.amplifier-burst.combo-burst.score-gain-show { animation: reward-combined-pop 3.8s ease-out both; }
       @keyframes reward-amplifier-pop { 0% { opacity: 0; transform: translateY(8px) scale(.55) rotate(-2deg); } 18% { opacity: 1; transform: translateY(-4px) scale(1.28) rotate(1deg); } 35% { transform: translateY(0) scale(.96); } 55% { transform: scale(1.12); } 100% { opacity: 0; transform: translateY(-10px) scale(1); } }
       @keyframes reward-combo-pop { 0% { opacity: 0; transform: translateY(8px) scale(.6); } 20% { opacity: 1; transform: translateY(-4px) scale(1.3); } 45% { transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-10px) scale(1.08); } }
       @keyframes reward-combined-pop { 0% { opacity: 0; transform: translateY(8px) scale(.5) rotate(-3deg); } 20% { opacity: 1; transform: translateY(-5px) scale(1.35) rotate(2deg); } 42% { transform: translateY(0) scale(1.05) rotate(0); } 62% { transform: scale(1.18); } 100% { opacity: 0; transform: translateY(-12px) scale(1); } }
@@ -121,7 +123,7 @@
     chronoComboIndicator.setAttribute('aria-live', 'polite');
     chronoComboIndicator.hidden = true;
     // Anchor the compact label to the board frame so it never occupies layout space.
-    (boardStage || comboSlot).appendChild(chronoComboIndicator);
+    comboSlot.appendChild(chronoComboIndicator);
   }
 
   function readStats() {
@@ -178,9 +180,9 @@
   // Exact weighted letter distribution from the original loadcharset2().
   function makeLetterBag() {
     const counts = {
-      A: 16, B: 4, C: 6, D: 8, E: 24, F: 4, G: 5, H: 5, I: 13,
-      J: 2, K: 2, L: 7, M: 6, N: 13, O: 15, P: 4, Q: 2, R: 13,
-      S: 10, T: 15, U: 7, V: 3, W: 4, X: 2, Y: 4, Z: 2
+      A: 19, B: 5, C: 8, D: 8, E: 31, F: 5, G: 10, H: 7, I: 16,
+      J: 1, K: 2, L: 10, M: 8, N: 17, O: 19, P: 5, Q: 2, R: 17,
+      S: 13, T: 20, U: 11, V: 4, W: 5, X: 1, Y: 5, Z: 1
     };
     letterBag = [];
     Object.entries(counts).forEach(([letter, count]) => {
@@ -282,6 +284,7 @@
     swapMode = false;
     swapFirstIndex = null;
     board.querySelectorAll('.power-target-selected').forEach((tile) => tile.classList.remove('power-target-selected'));
+    board.querySelectorAll('.power-target-hover').forEach((tile) => tile.classList.remove('power-target-hover'));
     hideBombTargetPreview();
   }
 
@@ -356,7 +359,7 @@
     const boardRect = board.getBoundingClientRect();
     if (x < boardRect.left || x > boardRect.right || y < boardRect.top || y > boardRect.bottom) return null;
     const first = board.querySelector(`[data-index="${best.row * SIZE + best.col}"]`);
-    const tolerance = Math.max(8, Math.min(first.getBoundingClientRect().width, first.getBoundingClientRect().height) * 0.22);
+    const tolerance = Math.max(14, Math.min(first.getBoundingClientRect().width, first.getBoundingClientRect().height) * 0.42);
     return best.distance <= tolerance ? { row: best.row, col: best.col } : null;
   }
 
@@ -865,6 +868,11 @@
     el('word-feedback').textContent = 'Drag across letters to select them';
     el('countdown').textContent = '02:00';
     el('game-over').hidden = true;
+    el('pause-overlay').hidden = true;
+    isPaused = false;
+    pausedComboTimer = false;
+    el('pause-button').textContent = 'Ⅱ';
+    el('pause-button').disabled = false;
     el('countdown-overlay').hidden = false;
     el('countdown-number').textContent = '3';
     el('personal-best-message').hidden = true;
@@ -913,7 +921,7 @@
   }
 
   function tick() {
-    if (!roundActive) return;
+    if (!roundActive || isPaused) return;
     secondsLeft = Math.max(0, secondsLeft - 1);
     updateCountdown();
     if (secondsLeft === 0) endGame();
@@ -944,7 +952,7 @@
       indicator.textContent = '';
       el('countdown').classList.remove('timer-bonus-pulse');
       timeBonusTimeout = null;
-    }, 1200);
+    }, 2100);
     return added;
   }
 
@@ -1092,6 +1100,8 @@
   function endGame() {
     if (!roundActive) return;
     roundActive = false;
+    isPaused = false;
+    el('pause-overlay').hidden = true;
     isSelecting = false;
     selectedIndices = [];
     cancelPowerModes();
@@ -1341,12 +1351,11 @@
     el('word-feedback').classList.remove('feedback-error');
     el('word-feedback').classList.add('feedback-success');
     const amplifierText = amplifierLabel(result.amplifierMultiplier);
-    el('word-feedback').textContent = `+${lastScore.toLocaleString()} points${result.multiplier > 1 ? ` · ${result.multiplier}× word multiplier` : ''}${amplifierText ? ` · ${amplifierText}` : ''} · +${timeAdded}s${comboResult.rewardPoints > 0 ? ` · COMBO +${comboResult.rewardPoints}` : ''}${comboResult.level > 0 && comboResult.rewardSeconds > 0 ? ` · +${comboResult.rewardSeconds}s COMBO TIME` : (comboResult.requestedReward > 0 && comboResult.rewardSeconds === 0 ? ' · TIME MAX' : '')}`;
+    el('word-feedback').textContent = 'Word accepted';
     const scoreGain = el('score-gain');
     const scoreGainParts = [`+${result.total.toLocaleString()} WORD PTS`];
     if (result.amplifierMultiplier > 1) scoreGainParts.push(amplifierText);
     if (comboResult.rewardPoints > 0) scoreGainParts.push(`COMBO +${comboResult.rewardPoints}`);
-    if (comboResult.level > 0 && comboResult.rewardSeconds > 0) scoreGainParts.push(`+${comboResult.rewardSeconds}s`);
     scoreGain.textContent = scoreGainParts.join('  ✦  ');
     scoreGain.classList.remove('score-gain-show', 'amplifier-burst', 'combo-burst');
     if (result.amplifierMultiplier > 1) scoreGain.classList.add('amplifier-burst');
@@ -1358,7 +1367,7 @@
       scoreGain.classList.remove('score-gain-show', 'amplifier-burst', 'combo-burst');
       scoreGain.textContent = '';
       scoreGainTimeout = null;
-    }, 1050);
+    }, 4000);
     selectedIndices = [];
     clearSelectionStyles();
     // Lock only the consumed tiles. All other tiles stay available during refill.
@@ -1497,7 +1506,41 @@
   el('settings-back-button').addEventListener('click', () => showScreen('front'));
   el('theme-classic-choice').addEventListener('click', () => document.body.classList.remove('theme-style2'));
   el('theme-style2-choice').addEventListener('click', () => document.body.classList.add('theme-style2'));
-  el('game-menu-button').addEventListener('click', () => { roundActive = false; hideChronoCombo(); stopTimers(); cancelPowerModes(); cancelRefillSequence(); showScreen('front'); });
+  function pauseGame() {
+    if (!roundActive || isPaused || el('countdown-overlay').hidden === false) return;
+    isPaused = true;
+    if (timerId !== null) window.clearInterval(timerId);
+    timerId = null;
+    pausedComboTimer = pauseChronoComboTimer();
+    el('pause-overlay').hidden = false;
+    el('pause-button').textContent = '▶';
+    el('pause-button').setAttribute('aria-label', 'Resume game');
+    el('resume-button').focus();
+  }
+  function resumeGame() {
+    if (!isPaused || !roundActive) return;
+    isPaused = false;
+    el('pause-overlay').hidden = true;
+    timerId = window.setInterval(tick, 1000);
+    resumeChronoComboTimer(pausedComboTimer);
+    pausedComboTimer = false;
+    el('pause-button').textContent = 'Ⅱ';
+    el('pause-button').setAttribute('aria-label', 'Pause game');
+    el('pause-button').focus();
+  }
+  function returnToMenu() {
+    isPaused = false;
+    el('pause-overlay').hidden = true;
+    roundActive = false;
+    hideChronoCombo();
+    stopTimers();
+    cancelPowerModes();
+    cancelRefillSequence();
+    showScreen('front');
+  }
+  el('pause-button').addEventListener('click', () => isPaused ? resumeGame() : pauseGame());
+  el('resume-button').addEventListener('click', resumeGame);
+  el('game-menu-button').addEventListener('click', returnToMenu);
   el('rotate-action').addEventListener('click', rotateBoardClockwise);
   el('randomize-action').addEventListener('click', armRandomize);
   el('bomb-action').addEventListener('click', armBomb);
@@ -1535,7 +1578,13 @@
     selectTile(Number(tile.dataset.index));
   });
   board.addEventListener('pointermove', (event) => {
-    if (bombMode && roundActive && !actionBusy) { updateBombTargetPreview(event.clientX, event.clientY); return; }
+    if (bombMode && roundActive && !actionBusy) { board.querySelectorAll('.power-target-hover').forEach((tile) => tile.classList.remove('power-target-hover')); updateBombTargetPreview(event.clientX, event.clientY); return; }
+    if ((randomizeMode || swapMode) && roundActive && !actionBusy) {
+      const targetIndex = tileIndexFromPoint(event.clientX, event.clientY);
+      board.querySelectorAll('.power-target-hover').forEach((tile) => tile.classList.toggle('power-target-hover', Number(tile.dataset.index) === targetIndex));
+      return;
+    }
+    board.querySelectorAll('.power-target-hover').forEach((tile) => tile.classList.remove('power-target-hover'));
     if (!isSelecting || !roundActive || actionBusy) return;
     // Keep the visual trace on the real pointer coordinates. Tile selection still
     // samples between pointer events separately so fast drags cannot skip tiles.
@@ -1565,7 +1614,7 @@
     lastPointerY = null;
     finishSelection();
   }
-  board.addEventListener('pointerleave', () => { if (bombMode) hideBombTargetPreview(); });
+  board.addEventListener('pointerleave', () => { if (bombMode) hideBombTargetPreview(); board.querySelectorAll('.power-target-hover').forEach((tile) => tile.classList.remove('power-target-hover')); });
   board.addEventListener('pointerup', pointerEnd);
   board.addEventListener('pointercancel', pointerEnd);
   board.addEventListener('contextmenu', (event) => event.preventDefault());

@@ -1,3 +1,18 @@
+## 2026-10-21 — HUD layout correction (follow-up)
+
+### Changed
+- Reordered gameplay UI to match the approved reference: Score and Time in the top bar; current word immediately below; compact reward feedback directly below the word panel; Chrono Combo in a reserved row immediately above the board.
+- Moved score and time reward elements out of the top header into a fixed-height feedback row so reward text and animation cannot change header height.
+- Moved the Chrono Combo indicator into its dedicated fixed-height slot instead of appending it inside the board stage, preventing it from affecting board layout.
+- Simplified the current-word subline to a short acceptance message after a valid word; score, amplifier, combo and time details are presented in the separate reward row.
+- Reduced excess vertical spacing and lowered the maximum board size on short mobile viewports to avoid unnecessary scrolling and vertical movement.
+- Kept Style 1 Classic dark blue + gold and Style 2 Electric Blue + Gold. Combo active/expired feedback uses blue/gold/neutral colors rather than teal/red redesign colors.
+- Preserved in-tile letter-value subscripts, bonus superscripts, user-supplied letter values and distribution, scoring, powers, statistics, and existing theme persistence.
+
+### Validation
+- Source syntax checks and automated tests must be run against this follow-up build.
+- Browser visual and interaction verification is not claimed until exercised in Live Server.
+
 # Word Scavenger — Project Changelog
 
 **Coverage:** APK/source recovery through the Word Scavenger work documented on 20 October 2026.
@@ -280,3 +295,65 @@ The history available for this update includes the changelog source, a Classic M
 - Existing scoring-rule tests passed.
 - Existing game-logic tests passed, including rotation, randomize metadata, swap, bomb gravity/refill, round summary, persistence guards, and game-over cancellation guards.
 - Browser-level visual inspection, touch interaction, theme persistence across reloads, and the complete end-to-end UI regression checklist have not been verified in a real browser in this run.
+
+
+## 2026-10-21 — UI/HUD refinement and letter table update
+
+### Changed
+- Updated the gameplay layout to reserve stable areas for the header, current word, Chrono Combo indicator, board, and power controls; placed power controls beneath the board to match the approved reference composition.
+- Refined Classic and Style 2 tile styling to use dark-blue/electric-blue surfaces with gold accents while preserving separate bonus-tile identities.
+- Improved tile annotation styling: letter values remain subscripts and bonus labels (`2L`, `3L`, `2W`, `3W`) remain superscripts inside the tile. The separate bonus legend is hidden/removed from the gameplay presentation.
+- Refined responsive HUD and power-control layouts for narrow screens and short landscape viewports.
+- Kept theme selection in Settings / Appearance and retained the `wordScavengerTheme` persistence key.
+
+### Letter values and distribution
+- Replaced the letter-point array and weighted letter bag with the user-provided A–Z table.
+- Letter-point values now read: A16, B34, C32, D23, E14, F42, G21, H41, I16, J81, K52, L22, M32, N19, O18, P34, Q102, R19, S12, T19, U16, V45, W42, X82, Y42, Z101.
+- Distribution counts now read: A19, B5, C8, D8, E31, F5, G10, H7, I16, J1, K2, L10, M8, N17, O19, P5, Q2, R17, S13, T20, U11, V4, W5, X1, Y5, Z1 (250 total entries).
+
+### Verification
+- JavaScript syntax checks passed for `js/game.js` and `js/theme-toggle.js`.
+- Existing scoring-rule tests passed.
+- Existing game-logic and source-guard tests passed, including rotation, randomize metadata, swap, bomb gravity/refill, round summary, persistence, game-over cancellation, and Play Again guards.
+- ZIP integrity check is required after packaging. Actual browser rendering and interaction remain unverified in this update.
+
+## 2026-10-21 — HUD placement, pause control, and reward feedback
+
+### Changed
+- Repositioned the gameplay HUD so the timer is on the left, a pause control is centered, and the score is on the right.
+- Moved the game-menu action into the pause dialog so the primary HUD row stays focused on timer, pause, and score.
+- Positioned time-bonus feedback next to the timer and score-gain feedback next to the score.
+- Increased score-reward explanation visibility to approximately 2.8 seconds and time-bonus visibility to approximately 1.9 seconds.
+- Removed the empty reward-row height so it no longer creates unnecessary vertical spacing.
+- Refined the Style 2 colors toward Electric Blue + Gold, reducing teal/cyan dominance while retaining the Classic dark-blue-and-gold theme.
+
+### Added
+- Added a pause dialog with Resume and Main Menu actions.
+- Pausing stops the main round timer and pauses the Chrono Combo deadline; resuming restores the remaining combo time.
+
+### Verification
+- JavaScript syntax and existing deterministic tests are run for this package. Real-device/browser layout and pause interaction still require manual verification.
+
+
+## 2026-10-21 — Palette and HUD feedback correction
+
+- Restored Style 1 to the original teal background with warm default tiles and distinct blue, red, pale-blue, and purple bonus tiles.
+- Restored Style 2 to the electric-blue background with pale neutral default tiles and gold, cyan, coral, and purple bonus tiles.
+- Kept the timer on the left, pause button centered, and score on the right.
+- Kept time-bonus feedback adjacent to the timer and score/word/combo feedback adjacent to the score.
+- Removed the extra combo time (`+Ns`) from the score explanation; time awards remain visible beside the timer.
+- Extended score explanation animation and cleanup to approximately 3.8–4 seconds.
+- Automated checks are recorded separately from browser verification; the revised visual palette still requires browser review.
+
+## 2026-10-21 — HUD alignment and power-target feedback
+
+### Changed
+- Centered the TIME and SCORE labels and values within their respective HUD regions while keeping the pause control in the true center column.
+- Improved Style 2 tile-value subscripts with a dark, high-contrast color on pale tiles; selected tiles retain a white value for contrast.
+- Added a single-tile hover/target highlight while Randomize or Swap is armed, matching the visual language of Bomb's target preview.
+- Increased Bomb's target-intersection tolerance and ensured its action button keeps a larger minimum tap height on narrow layouts.
+
+### Verification
+- JavaScript syntax check passed for `js/game.js` and `js/game-logic.js`.
+- Existing scoring-rules and game-logic test suites passed.
+- Browser visual verification has not been performed in this run; confirm both themes, HUD centering, pointer/touch targeting, and Bomb selection in Live Server before release.
