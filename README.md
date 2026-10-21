@@ -102,3 +102,7 @@ Replacement tiles now flip in a staggered sequence (55 ms between flip starts; 1
 - Set Chrono Combo to a 7-second initial countdown and 20-second cap.
 - Set the fixed 500-entry bonus distribution to NO 350, 2LS 50, 3LS 40, 2WS 35, and 3WS 25.
 - Increased stored charge caps to 10 Rotate and 5 Randomize. Randomize now consumes one stored charge per use and can recharge up to its cap after every five valid words.
+
+## Progressive Web App (PWA) testing
+
+This build includes `manifest.webmanifest`, `service-worker.js`, launcher icons in `icons/`, and `js/pwa-register.js` for installable standalone-mode testing and offline app-shell caching. See [`PWA-INSTALL.md`](PWA-INSTALL.md) for Samsung Android / Chrome installation steps. Serve the project from HTTPS; opening `index.html` directly from a file manager or ZIP does not support PWA installation. Keep using the same site origin to retain that origin's local-storage statistics.

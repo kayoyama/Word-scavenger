@@ -37,3 +37,11 @@ Validation
 - Added position-based falling transitions for moved and newly generated Bomb tiles.
 - Replaced Swap's tile flip with a short slide animation for the two exchanged tiles only.
 - Preserved tile objects and their bonus metadata when moving existing tiles. Browser interaction testing remains required for visual approval.
+
+PWA support — 2026-10-21
+- Added a web app manifest configured for standalone display and portrait orientation.
+- Added 192px, 512px, and 512px maskable launcher icons.
+- Added a same-origin service worker to cache the game shell, bundled dictionary, styles, scripts, manifest, and icons for offline launches.
+- Added service-worker registration as a separate enhancement script; gameplay code and storage keys were not changed.
+- Added Samsung Android / Chrome installation and offline-testing instructions in PWA-INSTALL.md.
+- Validation scope: manifest JSON, JavaScript syntax, local asset references, icon dimensions, and ZIP integrity. Real device installation and interactive gameplay regression testing remain required.
