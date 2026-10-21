@@ -218,3 +218,20 @@ The history available for this update includes the changelog source, a Classic M
 - Deterministic tests cover letter and word bonus arithmetic, Word Amplifier multipliers and rounding, additive time awards, per-word and overall caps, combo progression and expiry, long-word charge thresholds, and the single accepted-word reward call path.
 - JavaScript syntax and ZIP integrity checks passed for the updated package.
 - Browser interaction, live localStorage round persistence, and PWA offline startup remain unverified; source and deterministic tests do not establish those behaviors.
+
+
+## 2026-10-21 — Phase 1B power and animation lifecycle
+
+### Changed
+- Centralized power-animation locking through a shared guard that prevents power activation during power animations, tile refills, and Long Word Bonus tile transformations. Rotate and Randomize remain disabled while relevant tile locks are active.
+- Hardened Bomb and Swap activation with lock checks and target/index validation; power animations now consistently set and release the shared busy state. Stale scheduled callbacks remain invalidated by the refill token.
+- Restricted main-timer and Chrono Combo timer pausing to the actual 400 ms Rotate animation. Randomize, Bomb, and Swap do not pause either timer. Rotate resumes each timer only if it was running before the animation.
+- Changed Bomb/Swap charge progress: any accepted word of 6 or more letters is excluded from both the 10-word Bomb and 15-word Swap milestones. Bomb still awards an immediate charge at 6+ letters; Swap awards one at 7+ letters. These long words preserve existing short-word milestone progress rather than advancing or resetting it.
+- Updated power hints and the authoritative scoring rules to explain the milestone exclusion.
+- Cancelling an in-flight refill/action sequence now clears the shared busy state; leaving gameplay cancels armed powers and pending animation callbacks.
+
+### Verification
+- Added deterministic charge-progress tests covering 6-letter words, 7+ letter words, preserved milestone progress, milestone completion, and charge caps.
+- Added source guards for shared power-lock enforcement, Rotate-only timer pausing, and stale callback token checks.
+- JavaScript syntax, deterministic tests, manifest/app-shell reference checks, and ZIP integrity are required before packaging.
+- Interactive browser animation, timer behavior under real browser scheduling, and PWA install/offline behavior remain unverified unless separately tested.

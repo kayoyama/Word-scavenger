@@ -51,10 +51,12 @@ The score breakdown is additive: `base letter/word-bonus score + Word Amplifier 
 
 ## Power-charge long-word conditions
 
-- Bomb: one charge for a qualifying word of 6 or more letters, or on the regular 10-valid-word milestone; at most one Bomb charge per accepted word; maximum 3 stored charges.
-- Swap: one charge for a qualifying word of 7 or more letters, or on the regular 15-valid-word milestone; at most one Swap charge per accepted word; maximum 3 stored charges.
-- A qualifying long word and a regular milestone on the same accepted word grant only one charge.
+- Bomb: one charge for a qualifying word of 6 or more letters, or on the regular 10-word milestone; maximum 3 stored charges.
+- Swap: one charge for a qualifying word of 7 or more letters, or on the regular 15-word milestone; maximum 3 stored charges.
+- **Words of 6 or more letters do not count toward either the Bomb 10-word or Swap 15-word milestone.** They can award an immediate long-word charge when they meet that power's threshold, but they do not advance or reset the regular milestone progress.
+- Regular milestone progress is tracked independently for Bomb and Swap and advances only on accepted valid words shorter than 6 letters.
+- A single accepted word awards at most one charge to each power. A 6-letter word can award Bomb but does not award Swap; a 7+ letter word can award one charge to each power. If a power is already at its 3-charge cap, it earns no charge and its milestone progress remains reset while full.
 
 ## Deterministic verification
 
-Run `node tests/scoring-rules.test.js` from the project root. This checks scoring arithmetic, word-length tiers, additive time rewards, per-word and overall caps, combo progression/expiry, and long-word charge thresholds. These tests do not replace interactive browser regression testing.
+Run `node tests/scoring-rules.test.js` from the project root. This checks scoring arithmetic, word-length tiers, additive time rewards, per-word and overall caps, combo progression/expiry, charge milestone exclusion/progress, and static animation-lock/timer-policy guards. These tests do not replace interactive browser regression testing.

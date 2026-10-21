@@ -97,3 +97,52 @@ console.log('PASS: scoring, amplifier, time caps, combo transitions, and long-wo
 }
 
 console.log('PASS: accepted-word reward call-site guard');
+
+// Power charge milestones: all 6+ letter words are excluded from both regular
+// milestones; qualifying long words may award immediate charges without resetting progress.
+{
+  const advance = rules.advancePowerChargeProgress;
+  let bomb = advance(9, 0, 3, 6, 6, 10, 6);
+  assert.deepEqual(bomb, { charges: 1, progress: 9, earned: true, reason: 'long-word' });
+  let swap = advance(14, 0, 3, 6, 7, 15, 6);
+  assert.deepEqual(swap, { charges: 0, progress: 14, earned: false, reason: 'excluded-long-word' });
+  swap = advance(swap.progress, swap.charges, 3, 7, 7, 15, 6);
+  assert.deepEqual(swap, { charges: 1, progress: 14, earned: true, reason: 'long-word' });
+  bomb = advance(bomb.progress, bomb.charges, 3, 5, 6, 10, 6);
+  assert.deepEqual(bomb, { charges: 2, progress: 0, earned: true, reason: 'milestone' });
+  swap = advance(swap.progress, swap.charges, 3, 5, 7, 15, 6);
+  assert.deepEqual(swap, { charges: 2, progress: 0, earned: true, reason: 'milestone' });
+  const full = advance(8, 3, 3, 7, 7, 15, 6);
+  assert.deepEqual(full, { charges: 3, progress: 0, earned: false, reason: 'full' });
+}
+console.log('PASS: long words are excluded from both regular power milestones; charge progress is preserved');
+
+// Animation lifecycle integration guards: only Rotate pauses timers; all power
+// entry points use the shared animation-lock predicate and stale callbacks are token-guarded.
+{
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(path.join(__dirname, '../js/game.js'), 'utf8');
+  const randomizeBody = source.slice(source.indexOf('  function randomizeTileLetter('), source.indexOf('  function renderBoard('));
+  const rotateBody = source.slice(source.indexOf('  function rotateBoardClockwise('), source.indexOf('  function armRandomize('));
+  assert.doesNotMatch(randomizeBody, /pauseRoundTimer\(|pauseChronoComboTimer\(|resumeRoundTimer\(|resumeChronoComboTimer\(/);
+  assert.match(rotateBody, /pauseRoundTimer\(\)/);
+  assert.match(rotateBody, /pauseChronoComboTimer\(\)/);
+  assert.match(rotateBody, /resumeRoundTimer\(timerWasRunning\)/);
+  assert.match(rotateBody, /resumeChronoComboTimer\(chronoWasRunning\)/);
+  for (const fn of ['armBomb', 'armSwap', 'useBombAt', 'useSwap', 'rotateBoardClockwise', 'armRandomize', 'randomizeTileLetter']) {
+    const start = source.indexOf(`  function ${fn}(`);
+    assert.notEqual(start, -1, `missing ${fn}`);
+    const next = source.indexOf('\n  function ', start + 4);
+    assert.match(source.slice(start, next === -1 ? source.length : next), /isPowerActionLocked\(\)/, `${fn} must enforce the shared animation lock`);
+  }
+  assert.match(source, /if \(token !== refillToken\) return;/);
+  for (const [fn, charge] of [['useBombAt', 'bombCharges -= 1;'], ['useSwap', 'swapCharges -= 1;'], ['randomizeTileLetter', 'randomizeCharges -= 1;']]) {
+    const start = source.indexOf(`  function ${fn}(`);
+    const next = source.indexOf('\n  function ', start + 4);
+    const body = source.slice(start, next === -1 ? source.length : next);
+    assert.equal((body.match(new RegExp(charge.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length, 1, `${fn} should consume one charge once per activation`);
+  }
+}
+console.log('PASS: animation lock and timer-policy source guards');
+

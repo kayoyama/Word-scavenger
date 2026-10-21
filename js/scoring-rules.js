@@ -79,6 +79,33 @@
     return Number(wordLength) >= Number(threshold);
   }
 
+  // Words of 6+ letters are excluded from both regular word-count milestones.
+  // They may award an immediate charge at the power's own threshold, but never
+  // advance or reset regular milestone progress. Each power tracks this separately.
+  function advancePowerChargeProgress(progress, charges, cap, wordLength, longWordThreshold, milestone, excludedLength = 6) {
+    const currentProgress = Math.max(0, Number(progress) || 0);
+    const currentCharges = Math.max(0, Number(charges) || 0);
+    const maxCharges = Math.max(0, Number(cap) || 0);
+    const length = Number(wordLength) || 0;
+
+    if (currentCharges >= maxCharges) {
+      return { charges: currentCharges, progress: 0, earned: false, reason: 'full' };
+    }
+
+    if (length >= excludedLength) {
+      if (qualifiesForLongWordCharge(length, longWordThreshold)) {
+        return { charges: currentCharges + 1, progress: currentProgress, earned: true, reason: 'long-word' };
+      }
+      return { charges: currentCharges, progress: currentProgress, earned: false, reason: 'excluded-long-word' };
+    }
+
+    const nextProgress = currentProgress + 1;
+    if (nextProgress >= milestone) {
+      return { charges: currentCharges + 1, progress: 0, earned: true, reason: 'milestone' };
+    }
+    return { charges: currentCharges, progress: nextProgress, earned: false, reason: 'progress' };
+  }
+
   const api = Object.freeze({
     AMPLIFIER_MULTIPLIERS,
     AMPLIFIER_TIME_SECONDS,
@@ -87,7 +114,8 @@
     calculateWordScore,
     calculateTimeAward,
     calculateComboTransition,
-    qualifiesForLongWordCharge
+    qualifiesForLongWordCharge,
+    advancePowerChargeProgress
   });
   root.WordScoringRules = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

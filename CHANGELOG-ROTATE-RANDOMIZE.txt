@@ -45,3 +45,10 @@ PWA support — 2026-10-21
 - Added service-worker registration as a separate enhancement script; gameplay code and storage keys were not changed.
 - Added Samsung Android / Chrome installation and offline-testing instructions in PWA-INSTALL.md.
 - Validation scope: manifest JSON, JavaScript syntax, local asset references, icon dimensions, and ZIP integrity. Real device installation and interactive gameplay regression testing remain required.
+
+
+2026-10-21 — Phase 1B lifecycle corrections
+- Power buttons use a shared animation-lock guard and stay unavailable during refill/Long Word Bonus locks.
+- Rotate alone pauses the main and Chrono Combo timers during its 400 ms animation. Randomize, Bomb, and Swap do not pause timers.
+- Long words of 6+ letters no longer count toward either the Bomb 10-word or Swap 15-word milestone; long-word charge thresholds remain 6+ for Bomb and 7+ for Swap.
+- See SCORING-RULES.md and Word Scavenger changelog.md for the authoritative details.

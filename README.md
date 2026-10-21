@@ -111,3 +111,8 @@ This build includes `manifest.webmanifest`, `service-worker.js`, launcher icons 
 ## Authoritative scoring and timer rules
 
 `SCORING-RULES.md` is the canonical specification for word scoring, Word Amplifier, Chrono Combo, main-timer rewards/caps, saved time-earned metrics, and long-word Bomb/Swap charge eligibility. The game and deterministic tests use the shared pure calculation module `js/scoring-rules.js`. Run `node tests/scoring-rules.test.js` from the project root to verify its deterministic calculations.
+
+
+### Phase 1B power-charge milestone rule
+
+Words of 6 or more letters do not count toward the Bomb or Swap regular milestones. Bomb can award an immediate charge at 6+ letters; Swap can award one at 7+ letters. Such words preserve regular milestone progress. See `SCORING-RULES.md`.
