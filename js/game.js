@@ -449,14 +449,38 @@
     const rowIndices = [row * SIZE + col, row * SIZE + col + 1, (row + 1) * SIZE + col, (row + 1) * SIZE + col + 1];
     const oldPositions = captureTilePositions();
     const bombedElements = rowIndices.map((index) => board.querySelector(`[data-index="${index}"]`)).filter(Boolean);
-    bombedElements.forEach((tile) => tile.classList.add('bomb-exploding'));
+    // Each of the four exploded positions keeps its own winning bonus/color.
+    // Do not promote one bonus across both columns: each landing cell is resolved independently.
+    const landingBonuses = new Map(rowIndices.map((index) => [index, tiles[index]?.bonus || 'NO']));
+    bombedElements.forEach((tile, position) => {
+      tile.classList.add('bomb-exploding');
+      tile.dataset.winnerBonus = landingBonuses.get(rowIndices[position]) || 'NO';
+    });
     selectedIndices = [];
     clearSelectionStyles();
     const token = refillToken;
     // Keep the old board in place for the explosion; mutate/refill only after it finishes.
     scheduleRefillTimer(() => {
+      // New tiles entering from above receive independently random letters and no inherited bonus.
       const bombResult = gameLogic.bombClearAndGravity(tiles, SIZE, row, col, () => ({ letter: drawLetter(), bonus: drawBonus() }));
       tiles = bombResult.tiles;
+      // Only tiles above the explosion cascade down. Rows below the 2×2 target
+      // remain untouched. Each tile landing in the explosion compares its bonus
+      // against that exact destination's exploded bonus; never recolor whole columns.
+      const bonusRank = { NO: 0, '2LS': 1, '3LS': 2, '2WS': 3, '3WS': 4 };
+      rowIndices.forEach((index) => {
+        const landedTile = tiles[index];
+        if (!landedTile) return;
+        // Whether the tile came from above or was newly generated at the top,
+        // compare its bonus against the exploded tile at this exact destination.
+        // New tiles keep their random letter; only the bonus/color may be promoted.
+        const explodedBonus = landingBonuses.get(index) || 'NO';
+        const incomingBonus = landedTile.bonus || 'NO';
+        const winningBonus = (bonusRank[incomingBonus] || 0) >= (bonusRank[explodedBonus] || 0)
+          ? incomingBonus
+          : explodedBonus;
+        if (winningBonus !== incomingBonus) tiles[index] = { ...landedTile, bonus: winningBonus };
+      });
       renderBoard();
       animateTilePositions(oldPositions, bombResult.movedTiles, bombResult.newTiles, 300, token);
       renderActionCharges();
@@ -1552,12 +1576,15 @@
     if (!roundActive || actionBusy || event.button > 0) return;
     event.preventDefault();
     if (bombMode) {
-      const block = findBombBlockAtPoint(event.clientX, event.clientY);
-      if (block) useBombAt(block.row, block.col);
+      updateBombTargetPreview(event.clientX, event.clientY);
       return;
     }
     const tile = event.target.closest('.tile');
     if (!tile) return;
+    if (randomizeMode || swapMode) {
+      board.querySelectorAll('.power-target-hover').forEach((item) => item.classList.remove('power-target-hover'));
+      tile.classList.add('power-target-hover');
+    }
     if (swapMode) {
       const index = Number(tile.dataset.index);
       if (swapFirstIndex === null) {
@@ -1581,7 +1608,11 @@
     if (bombMode && roundActive && !actionBusy) { board.querySelectorAll('.power-target-hover').forEach((tile) => tile.classList.remove('power-target-hover')); updateBombTargetPreview(event.clientX, event.clientY); return; }
     if ((randomizeMode || swapMode) && roundActive && !actionBusy) {
       const targetIndex = tileIndexFromPoint(event.clientX, event.clientY);
-      board.querySelectorAll('.power-target-hover').forEach((tile) => tile.classList.toggle('power-target-hover', Number(tile.dataset.index) === targetIndex));
+      board.querySelectorAll('.power-target-hover').forEach((tile) => tile.classList.remove('power-target-hover'));
+      if (targetIndex >= 0) {
+        const targetTile = board.querySelector(`[data-index="${targetIndex}"]`);
+        if (targetTile) targetTile.classList.add('power-target-hover');
+      }
       return;
     }
     board.querySelectorAll('.power-target-hover').forEach((tile) => tile.classList.remove('power-target-hover'));
@@ -1607,7 +1638,12 @@
     lastPointerX = event.clientX;
     lastPointerY = event.clientY;
   });
-  function pointerEnd() {
+  function pointerEnd(event) {
+    if (bombMode && roundActive && !actionBusy && event) {
+      const block = findBombBlockAtPoint(event.clientX, event.clientY) || (bombTargetPreview && { row: Number(bombTargetPreview.dataset.row), col: Number(bombTargetPreview.dataset.col) });
+      if (block) useBombAt(block.row, block.col);
+      return;
+    }
     if (!isSelecting) return;
     isSelecting = false;
     lastPointerX = null;

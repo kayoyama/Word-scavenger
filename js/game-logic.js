@@ -40,28 +40,33 @@
     const next = items.slice();
     const movedTiles = new Set();
     const newTiles = new Set();
+    const sourceByDestination = new Map();
+    const clearedIndices = [
+      row * size + col, row * size + col + 1,
+      (row + 1) * size + col, (row + 1) * size + col + 1
+    ];
+
+    // Cascade only the area above the explosion. Rows below the 2×2 target
+    // remain exactly where they are, with their original tile objects/metadata.
+    // Two fresh rows enter at the top; existing tiles above fall down two rows.
     [col, col + 1].forEach((column) => {
-      const originalColumn = Array.from({ length: size }, (_, r) => items[r * size + column]);
-      const nextColumn = originalColumn.slice();
-      for (let r = 0; r < row; r += 1) {
-        nextColumn[r] = createTile();
-        newTiles.add(nextColumn[r]);
-      }
-      for (let offset = 0; offset < 2; offset += 1) {
-        const destinationRow = row + offset;
+      for (let destinationRow = 0; destinationRow <= row + 1; destinationRow += 1) {
+        const destinationIndex = destinationRow * size + column;
         const sourceRow = destinationRow - 2;
         if (sourceRow >= 0) {
-          nextColumn[destinationRow] = originalColumn[sourceRow];
-          movedTiles.add(originalColumn[sourceRow]);
+          const sourceIndex = sourceRow * size + column;
+          const tile = items[sourceIndex];
+          next[destinationIndex] = tile;
+          sourceByDestination.set(destinationIndex, sourceIndex);
+          if (sourceIndex !== destinationIndex) movedTiles.add(tile);
         } else {
-          nextColumn[destinationRow] = createTile();
-          newTiles.add(nextColumn[destinationRow]);
+          const tile = createTile();
+          next[destinationIndex] = tile;
+          newTiles.add(tile);
         }
       }
-      for (let r = row + 2; r < size; r += 1) nextColumn[r] = originalColumn[r];
-      for (let r = 0; r < size; r += 1) next[r * size + column] = nextColumn[r];
     });
-    return { tiles: next, movedTiles, newTiles, clearedIndices: [row * size + col, row * size + col + 1, (row + 1) * size + col, (row + 1) * size + col + 1] };
+    return { tiles: next, movedTiles, newTiles, clearedIndices, sourceByDestination };
   }
 
   function summarizeRound(round) {

@@ -1,3 +1,19 @@
+# Word Scavenger — Project Changelog
+
+## 2026-10-22 — HUD, tile-value contrast, and Bomb landing-color correction
+
+### Changed
+- Applied high-contrast point-value labels across both Style 1 and Style 2, including dark bonus tiles and selected tiles.
+- Corrected the HUD grid so the TIME and SCORE labels are centered over their own sections while the timer value stays left-aligned, score value stays right-aligned, and pause remains centered.
+- Made Randomize and Swap explicitly clear and apply the single-tile target highlight during pointer movement and immediately on pointer-down.
+- Changed Bomb color propagation so each of the four landing positions retains its own corresponding exploded tile's bonus/color instead of spreading one winning bonus through both columns.
+- New tiles entering from above are generated with no inherited bonus; unaffected tiles retain their own bonus metadata.
+
+### Verification status
+- JavaScript syntax checks, game-logic tests, and scoring-rule regression tests passed. ZIP integrity will be checked after packaging. Real-browser visual and touch verification has not been performed.
+
+---
+
 ## 2026-10-21 — HUD layout correction (follow-up)
 
 ### Changed
@@ -357,3 +373,55 @@ The history available for this update includes the changelog source, a Classic M
 - JavaScript syntax check passed for `js/game.js` and `js/game-logic.js`.
 - Existing scoring-rules and game-logic test suites passed.
 - Browser visual verification has not been performed in this run; confirm both themes, HUD centering, pointer/touch targeting, and Bomb selection in Live Server before release.
+
+
+## 2026-10-22 — HUD, power targeting, and Bomb color propagation
+
+### Changed
+- Improved Style 2 tile-value contrast with a backing treatment and contrasting values on dark/selected bonus tiles.
+- Centered TIME and SCORE labels within their HUD blocks while preserving the centered pause control.
+- Strengthened the single-tile hover/target highlight used by Randomize and Swap.
+- Increased Bomb control touch target size and changed Bomb activation to use the release position/highlighted target.
+- Bomb now selects the strongest bonus color in the targeted 2×2 block (`3WS` > `2WS` > `3LS` > `2LS` > no bonus) and propagates that bonus to the four landing cells during gravity.
+
+### Verification
+- Automated syntax, existing game-logic tests, scoring tests, and ZIP integrity are to be run for this candidate.
+- Real-browser visual and touch-device verification has not been performed in this build step.
+
+
+## 2026-10-22 — Annotation and Bomb cascade feedback
+
+- Removed background pills behind tile point values and bonus superscripts; contrast is now handled through text color and text shadow in both themes.
+- Aligned the TIME label left and SCORE label right, and increased both label sizes slightly while preserving the centered pause control.
+- Updated Bomb refill generation so newly created tiles draw both letters and bonus colors from the existing weighted bags.
+- For each falling tile that enters an exploded position, compare its own bonus against the bonus of that specific exploded tile and retain the higher-priority bonus for that landing tile only. No whole-column color propagation is used.
+- Browser visual/touch verification remains required for final confirmation.
+
+
+## 2026-10-22 — Bomb cascade storyboard and ZIP layout
+
+- Corrected Bomb gravity so existing tiles in the two affected columns shift down by two rows, preserving their letters and bonus metadata while moving.
+- Only newly created tiles entering at the top are drawn from the existing random letter and bonus distributions.
+- Each of the four landing tiles in the exploded 2×2 area independently compares its bonus with the bonus of the exploded tile at that exact destination; stronger bonus metadata is applied locally, never across a whole column.
+- Kept the existing position-based falling animation path for moved tile objects so the board animates rather than simply replacing the visible result.
+- Repackaged the project with project files at the ZIP root instead of nesting them under `ws_fix/`.
+- Automated source and archive checks are required; real-browser animation verification remains outstanding until run in Live Server.
+
+
+## 2026-10-22 — Bomb cascade boundary correction
+
+- Limited the Bomb gravity cascade to the two columns and rows above the exploded 2×2 area.
+- Tiles below the explosion now retain their exact positions, letters, bonus metadata, and colors.
+- Existing tiles above the explosion shift down two rows; only newly exposed top positions receive fresh random tiles.
+- Per-landing bonus comparison remains limited to the four exploded destinations.
+- ZIP packaging keeps project files at the archive root, without an extra wrapper directory.
+- Browser animation verification remains outstanding.
+
+
+## 2026-10-22 — Bomb top-row replacement bonus comparison
+
+- Fixed the top-edge Bomb scenario: when no original tiles can fall into the exploded positions, newly generated replacement tiles now compare their random bonus against the corresponding exploded tile.
+- The replacement tile keeps its randomly generated letter; only its bonus/color is promoted when the exploded tile has the higher-priority bonus.
+- The comparison remains independent for each of the four exploded destinations.
+- Existing tiles below the explosion remain unchanged.
+- Browser visual verification of the color transition remains outstanding.
