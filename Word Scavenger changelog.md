@@ -1,3 +1,16 @@
+## 2026-10-22 — Bomb release targeting validation
+
+### Fixed
+- Preserved single-press/touch, release-to-explode Bomb interaction while capturing the intended 2×2 target at pointer-down.
+- Added a forgiving but bounded target-acquisition tolerance so touches slightly off the intersection can still select the intended target.
+- During a drag, the captured target changes only when the pointer enters a valid target neighborhood; a stale preview can no longer independently trigger an explosion.
+- Validated pointer release against the captured target and board bounds. Releasing too far away, releasing outside the board, or cancelling the pointer gesture does not consume a Bomb charge.
+- Kept the existing per-position bonus promotion and falling-animation tracking fix intact.
+
+### Verification
+- Added source-level regression checks for target capture, bounded release validation, drag target updates, stale-preview rejection, and pointer cancellation.
+- Automated syntax and test results are recorded with the release candidate; actual mouse/touch visual verification remains separate and must be performed in a browser.
+
 # Word Scavenger — Project Changelog
 
 ## 2026-10-22 — HUD, tile-value contrast, and Bomb landing-color correction
@@ -425,3 +438,34 @@ The history available for this update includes the changelog source, a Classic M
 - The comparison remains independent for each of the four exploded destinations.
 - Existing tiles below the explosion remain unchanged.
 - Browser visual verification of the color transition remains outstanding.
+
+## 2026-10-22 — Bomb promoted-tile animation correction
+
+### Fixed
+- Preserved animation tracking when a tile's bonus is promoted during Bomb resolution. Previously, bonus promotion created a new tile object while the movement/new-tile animation sets still referenced the old object, which could cause that tile to appear at its destination without falling.
+- Promoted tiles now remain included in the falling animation whether they originated above the explosion or were newly generated at the top edge.
+- Added a background/text color transition from the incoming bonus to the winning bonus while the tile falls, without changing the randomly generated replacement letter.
+
+### Verification
+- `node --check js/game.js` — passed.
+- `node --check js/game-logic.js` — passed.
+- `node --test tests/game-logic.test.js tests/scoring-rules.test.js` — passed.
+- ZIP integrity and archive-root layout are checked during packaging.
+- Actual browser animation/color-transition verification remains outstanding; automated checks do not prove the visual effect.
+- Preserved the captured source position for promoted falling tiles so their motion starts from the tile's actual pre-explosion location rather than from above the board.
+
+## 2026-10-22 — Bomb cascade movement-plan correction
+
+### Fixed
+- Replaced Bomb animation's reliance on tile-object reference sets with a destination-indexed movement plan that records each destination's original source position, or marks a newly generated tile entering from above.
+- Captured pre-explosion tile rectangles by board index and animated Bomb destinations from their recorded source positions. Newly generated tiles animate from above the board.
+- Bonus promotion now mutates only the incoming tile's bonus metadata, preserving the same tile object and its letter. The movement plan remains stable through bonus resolution.
+- Extracted per-destination bonus resolution into shared game logic so promoted existing tiles and promoted top-edge replacement tiles can be tested directly. Color transitions are keyed by destination index and run during the fall.
+- Kept the four landing comparisons independent and preserved all unaffected tiles, including tiles below the explosion.
+
+### Verification
+- `node --check js/game.js` — passed.
+- `node --check js/game-logic.js` — passed.
+- `node --test tests/game-logic.test.js tests/scoring-rules.test.js` — passed, including movement-plan and promoted-tile identity/letter regression tests.
+- ZIP integrity and archive-root layout checked after packaging.
+- Actual browser animation/color-transition verification remains outstanding; automated tests do not prove visual smoothness.

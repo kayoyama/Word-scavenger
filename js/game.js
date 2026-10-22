@@ -37,6 +37,8 @@
   let rotateCenterOverlay = null;
   let rotateCenterOriginal = null;
   let bombTargetPreview = null;
+  let bombGestureTarget = null;
+  let bombGesturePointerId = null;
   const wordlistSet = new Set(Array.isArray(window.wordlist) ? window.wordlist : []);
 
   let tiles = [];
@@ -281,6 +283,8 @@
   function cancelPowerModes() {
     randomizeMode = false;
     bombMode = false;
+    bombGestureTarget = null;
+    bombGesturePointerId = null;
     swapMode = false;
     swapFirstIndex = null;
     board.querySelectorAll('.power-target-selected').forEach((tile) => tile.classList.remove('power-target-selected'));
@@ -351,16 +355,36 @@
     return best;
   }
 
-  function findBombBlockAtPoint(x, y) {
-    const best = nearestBombBlockAtPoint(x, y);
-    if (!best) return null;
-    const geometry = getBombBlockGeometry(best.row, best.col);
-    if (!geometry) return null;
+  function bombIntersectionPoint(row, col) {
+    const topLeft = board.querySelector(`[data-index="${row * SIZE + col}"]`);
+    const topRight = board.querySelector(`[data-index="${row * SIZE + col + 1}"]`);
+    const bottomLeft = board.querySelector(`[data-index="${(row + 1) * SIZE + col}"]`);
+    if (!topLeft || !topRight || !bottomLeft) return null;
+    const a = topLeft.getBoundingClientRect();
+    const b = topRight.getBoundingClientRect();
+    const c = bottomLeft.getBoundingClientRect();
+    return { x: (a.right + b.left) / 2, y: (a.bottom + c.top) / 2, tileWidth: a.width, tileHeight: a.height };
+  }
+
+  function bombTargetTolerance(row, col, multiplier = 0.82) {
+    const point = bombIntersectionPoint(row, col);
+    return point ? Math.max(14, Math.min(point.tileWidth, point.tileHeight) * multiplier) : 0;
+  }
+
+  function captureBombTargetAtPoint(x, y) {
     const boardRect = board.getBoundingClientRect();
     if (x < boardRect.left || x > boardRect.right || y < boardRect.top || y > boardRect.bottom) return null;
-    const first = board.querySelector(`[data-index="${best.row * SIZE + best.col}"]`);
-    const tolerance = Math.max(14, Math.min(first.getBoundingClientRect().width, first.getBoundingClientRect().height) * 0.42);
-    return best.distance <= tolerance ? { row: best.row, col: best.col } : null;
+    const nearest = nearestBombBlockAtPoint(x, y);
+    if (!nearest || nearest.distance > bombTargetTolerance(nearest.row, nearest.col)) return null;
+    return { row: nearest.row, col: nearest.col };
+  }
+
+  function isReleaseNearBombTarget(target, x, y) {
+    if (!target) return false;
+    const boardRect = board.getBoundingClientRect();
+    if (x < boardRect.left || x > boardRect.right || y < boardRect.top || y > boardRect.bottom) return false;
+    const point = bombIntersectionPoint(target.row, target.col);
+    return Boolean(point && Math.hypot(x - point.x, y - point.y) <= bombTargetTolerance(target.row, target.col, 0.82));
   }
 
   function updateBombTargetPreview(x, y) {
@@ -409,7 +433,61 @@
     return positions;
   }
 
-  function animateTilePositions(oldPositions, movedTileData, newTileData = [], duration = 300, token = refillToken) {
+  function captureTileRectsByIndex() {
+    const positions = new Map();
+    tiles.forEach((tileData, index) => {
+      const element = board.querySelector(`[data-index="${index}"]`);
+      if (element) positions.set(index, element.getBoundingClientRect());
+    });
+    return positions;
+  }
+
+  // Bomb animation is destination-driven rather than object-reference-driven.
+  // Bonus promotion can therefore never detach a tile from its movement path.
+  function animateBombMovementPlan(oldRectsByIndex, movementPlan, duration = 300, token = refillToken, bonusTransitionByIndex = new Map()) {
+    const animated = [];
+    movementPlan.forEach((movement, destinationIndex) => {
+      const element = board.querySelector(`[data-index="${destinationIndex}"]`);
+      if (!element) return;
+      const { sourceIndex, isNew } = movement;
+      if (!isNew && sourceIndex === destinationIndex) return;
+      const oldRect = sourceIndex === null ? null : oldRectsByIndex.get(sourceIndex);
+      const newRect = element.getBoundingClientRect();
+      const dx = oldRect ? oldRect.left - newRect.left : 0;
+      const dy = oldRect ? oldRect.top - newRect.top : -(newRect.height + 8);
+      const tileData = tiles[destinationIndex];
+      const previousBonus = bonusTransitionByIndex.get(destinationIndex);
+      element.style.transition = 'none';
+      if (previousBonus && previousBonus !== tileData.bonus) {
+        const winningClass = BONUS_CLASSES[tileData.bonus];
+        const previousClass = BONUS_CLASSES[previousBonus];
+        if (winningClass) element.classList.remove(winningClass);
+        if (previousClass) element.classList.add(previousClass);
+        void element.offsetWidth;
+        element.style.transition = `background-color ${duration}ms ease, color ${duration}ms ease`;
+        if (previousClass) element.classList.remove(previousClass);
+        if (winningClass) element.classList.add(winningClass);
+      }
+      element.style.transform = `translate(${dx}px, ${dy}px)`;
+      element.classList.add('power-move-animated');
+      animated.push(element);
+    });
+    void board.offsetWidth;
+    requestAnimationFrame(() => {
+      if (token !== refillToken) return;
+      animated.forEach((element) => {
+        element.style.transition = `transform ${duration}ms cubic-bezier(.2,.72,.25,1), background-color ${duration}ms ease, color ${duration}ms ease`;
+        element.style.transform = 'translate(0, 0)';
+      });
+    });
+    window.setTimeout(() => animated.forEach((element) => {
+      element.style.transition = '';
+      element.style.transform = '';
+      element.classList.remove('power-move-animated');
+    }), duration + 40);
+  }
+
+  function animateTilePositions(oldPositions, movedTileData, newTileData = [], duration = 300, token = refillToken, bonusTransitionByTile = new Map()) {
     const animated = [];
     tiles.forEach((tileData, index) => {
       const element = board.querySelector(`[data-index="${index}"]`);
@@ -422,6 +500,17 @@
       const dx = oldRect ? oldRect.left - newRect.left : 0;
       const dy = oldRect ? oldRect.top - newRect.top : -(newRect.height + 8);
       element.style.transition = 'none';
+      const previousBonus = bonusTransitionByTile.get(tileData);
+      if (previousBonus && previousBonus !== tileData.bonus) {
+        const winningClass = BONUS_CLASSES[tileData.bonus];
+        const previousClass = BONUS_CLASSES[previousBonus];
+        if (winningClass) element.classList.remove(winningClass);
+        if (previousClass) element.classList.add(previousClass);
+        void element.offsetWidth;
+        element.style.transition = `background-color ${duration}ms ease, color ${duration}ms ease`;
+        if (previousClass) element.classList.remove(previousClass);
+        if (winningClass) element.classList.add(winningClass);
+      }
       element.style.transform = `translate(${dx}px, ${dy}px)`;
       element.classList.add('power-move-animated');
       animated.push(element);
@@ -430,7 +519,7 @@
     requestAnimationFrame(() => {
       if (token !== refillToken) return;
       animated.forEach((element) => {
-        element.style.transition = `transform ${duration}ms cubic-bezier(.2,.72,.25,1)`;
+        element.style.transition = `transform ${duration}ms cubic-bezier(.2,.72,.25,1), background-color ${duration}ms ease, color ${duration}ms ease`;
         element.style.transform = 'translate(0, 0)';
       });
     });
@@ -447,7 +536,7 @@
     bombCharges -= 1;
     setActionsBusy(true);
     const rowIndices = [row * SIZE + col, row * SIZE + col + 1, (row + 1) * SIZE + col, (row + 1) * SIZE + col + 1];
-    const oldPositions = captureTilePositions();
+    const oldRectsByIndex = captureTileRectsByIndex();
     const bombedElements = rowIndices.map((index) => board.querySelector(`[data-index="${index}"]`)).filter(Boolean);
     // Each of the four exploded positions keeps its own winning bonus/color.
     // Do not promote one bonus across both columns: each landing cell is resolved independently.
@@ -467,22 +556,11 @@
       // Only tiles above the explosion cascade down. Rows below the 2×2 target
       // remain untouched. Each tile landing in the explosion compares its bonus
       // against that exact destination's exploded bonus; never recolor whole columns.
-      const bonusRank = { NO: 0, '2LS': 1, '3LS': 2, '2WS': 3, '3WS': 4 };
-      rowIndices.forEach((index) => {
-        const landedTile = tiles[index];
-        if (!landedTile) return;
-        // Whether the tile came from above or was newly generated at the top,
-        // compare its bonus against the exploded tile at this exact destination.
-        // New tiles keep their random letter; only the bonus/color may be promoted.
-        const explodedBonus = landingBonuses.get(index) || 'NO';
-        const incomingBonus = landedTile.bonus || 'NO';
-        const winningBonus = (bonusRank[incomingBonus] || 0) >= (bonusRank[explodedBonus] || 0)
-          ? incomingBonus
-          : explodedBonus;
-        if (winningBonus !== incomingBonus) tiles[index] = { ...landedTile, bonus: winningBonus };
-      });
+      // Resolve each landing bonus independently in shared logic. This mutates only
+      // the bonus field, preserving tile identity, random letters, and the movement plan.
+      const bonusTransitionByIndex = gameLogic.resolveBombLandingBonuses(tiles, rowIndices, landingBonuses);
       renderBoard();
-      animateTilePositions(oldPositions, bombResult.movedTiles, bombResult.newTiles, 300, token);
+      animateBombMovementPlan(oldRectsByIndex, bombResult.movementPlan, 300, token, bonusTransitionByIndex);
       renderActionCharges();
       el('word-feedback').textContent = 'Bomb used · tiles exploded and fell';
       scheduleRefillTimer(() => {
@@ -1576,7 +1654,11 @@
     if (!roundActive || actionBusy || event.button > 0) return;
     event.preventDefault();
     if (bombMode) {
-      updateBombTargetPreview(event.clientX, event.clientY);
+      bombGesturePointerId = event.pointerId;
+      bombGestureTarget = captureBombTargetAtPoint(event.clientX, event.clientY);
+      if (bombGestureTarget) updateBombTargetPreview(event.clientX, event.clientY);
+      else hideBombTargetPreview();
+      board.setPointerCapture?.(event.pointerId);
       return;
     }
     const tile = event.target.closest('.tile');
@@ -1605,7 +1687,23 @@
     selectTile(Number(tile.dataset.index));
   });
   board.addEventListener('pointermove', (event) => {
-    if (bombMode && roundActive && !actionBusy) { board.querySelectorAll('.power-target-hover').forEach((tile) => tile.classList.remove('power-target-hover')); updateBombTargetPreview(event.clientX, event.clientY); return; }
+    if (bombMode && roundActive && !actionBusy) {
+      board.querySelectorAll('.power-target-hover').forEach((tile) => tile.classList.remove('power-target-hover'));
+      if (bombGesturePointerId === event.pointerId) {
+        // While the player is pressing, update the captured target only when the
+        // pointer is within a bounded acquisition radius of a real intersection.
+        const candidate = captureBombTargetAtPoint(event.clientX, event.clientY);
+        if (candidate) {
+          bombGestureTarget = candidate;
+          updateBombTargetPreview(event.clientX, event.clientY);
+        } else if (!bombGestureTarget) {
+          hideBombTargetPreview();
+        }
+      } else {
+        updateBombTargetPreview(event.clientX, event.clientY);
+      }
+      return;
+    }
     if ((randomizeMode || swapMode) && roundActive && !actionBusy) {
       const targetIndex = tileIndexFromPoint(event.clientX, event.clientY);
       board.querySelectorAll('.power-target-hover').forEach((tile) => tile.classList.remove('power-target-hover'));
@@ -1640,8 +1738,17 @@
   });
   function pointerEnd(event) {
     if (bombMode && roundActive && !actionBusy && event) {
-      const block = findBombBlockAtPoint(event.clientX, event.clientY) || (bombTargetPreview && { row: Number(bombTargetPreview.dataset.row), col: Number(bombTargetPreview.dataset.col) });
-      if (block) useBombAt(block.row, block.col);
+      if (bombGesturePointerId !== null && event.pointerId !== bombGesturePointerId) return;
+      const target = bombGestureTarget;
+      const isCancellation = event.type === 'pointercancel';
+      bombGestureTarget = null;
+      bombGesturePointerId = null;
+      hideBombTargetPreview();
+      if (!isCancellation && isReleaseNearBombTarget(target, event.clientX, event.clientY)) {
+        useBombAt(target.row, target.col);
+      } else if (!isCancellation && target) {
+        el('word-feedback').textContent = 'Bomb cancelled · release closer to the highlighted target';
+      }
       return;
     }
     if (!isSelecting) return;

@@ -41,6 +41,9 @@
     const movedTiles = new Set();
     const newTiles = new Set();
     const sourceByDestination = new Map();
+    // Destination-indexed movement plan is independent of tile object identity.
+    // sourceIndex is null for newly generated tiles entering from above.
+    const movementPlan = new Map();
     const clearedIndices = [
       row * size + col, row * size + col + 1,
       (row + 1) * size + col, (row + 1) * size + col + 1
@@ -58,15 +61,40 @@
           const tile = items[sourceIndex];
           next[destinationIndex] = tile;
           sourceByDestination.set(destinationIndex, sourceIndex);
+          movementPlan.set(destinationIndex, { sourceIndex, isNew: false, tile });
           if (sourceIndex !== destinationIndex) movedTiles.add(tile);
         } else {
           const tile = createTile();
           next[destinationIndex] = tile;
+          movementPlan.set(destinationIndex, { sourceIndex: null, isNew: true, tile });
           newTiles.add(tile);
         }
       }
     });
-    return { tiles: next, movedTiles, newTiles, clearedIndices, sourceByDestination };
+    return { tiles: next, movedTiles, newTiles, clearedIndices, sourceByDestination, movementPlan };
+  }
+
+  function resolveBombLandingBonuses(tiles, landingIndices, explodedBonuses) {
+    if (!Array.isArray(tiles) || !Array.isArray(landingIndices) || !(explodedBonuses instanceof Map)) {
+      throw new TypeError('Bomb bonus resolution requires tiles, landing indices, and exploded bonuses');
+    }
+    const rank = { NO: 0, '2LS': 1, '3LS': 2, '2WS': 3, '3WS': 4 };
+    const transitions = new Map();
+    landingIndices.forEach((index) => {
+      const tile = tiles[index];
+      if (!tile) return;
+      const incomingBonus = tile.bonus || 'NO';
+      const explodedBonus = explodedBonuses.get(index) || 'NO';
+      const winningBonus = (rank[incomingBonus] || 0) >= (rank[explodedBonus] || 0)
+        ? incomingBonus
+        : explodedBonus;
+      if (winningBonus !== incomingBonus) {
+        // Mutate only the bonus field so tile identity and the random letter survive.
+        tile.bonus = winningBonus;
+        transitions.set(index, incomingBonus);
+      }
+    });
+    return transitions;
   }
 
   function summarizeRound(round) {
@@ -87,6 +115,6 @@
     };
   }
 
-  root.WordGameLogic = Object.freeze({ rotateClockwise, withRandomizedLetter, swapTiles, bombClearAndGravity, summarizeRound });
+  root.WordGameLogic = Object.freeze({ rotateClockwise, withRandomizedLetter, swapTiles, bombClearAndGravity, resolveBombLandingBonuses, summarizeRound });
   if (typeof module !== 'undefined' && module.exports) module.exports = root.WordGameLogic;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -54,6 +54,8 @@ function makeBoard(size = 5) {
   const result = logic.bombClearAndGravity(original, 5, 0, 0, () => ({ id: nextId++, letter: 'Z', bonus: 'NO', color: 'new' }));
   assert.deepEqual(result.clearedIndices, [0, 1, 5, 6]);
   assert.equal(result.newTiles.size, 4, 'top-edge bomb refills four cleared positions');
+  assert.equal(result.movementPlan.get(0).sourceIndex, null, 'top-edge replacement animates from above the board');
+  assert.equal(result.movementPlan.get(0).isNew, true, 'top-edge movement plan marks replacement tiles as new');
   for (let row = 2; row < 5; row += 1) {
     for (let col = 2; col < 5; col += 1) assert.equal(result.tiles[row * 5 + col], original[row * 5 + col], 'unaffected tile remains stationary');
   }
@@ -71,11 +73,36 @@ function makeBoard(size = 5) {
   assert.equal(result.tiles[2].id, 200);
   assert.equal(result.tiles[7].id, 201);
   assert.equal(result.newTiles.size, 4);
+  assert.deepEqual(result.movementPlan.get(12), { sourceIndex: 2, isNew: false, tile: original[2] }, 'existing falling tile has a stable source-to-destination plan');
+  assert.deepEqual(result.movementPlan.get(17), { sourceIndex: 7, isNew: false, tile: original[7] }, 'second landing tile tracks its own source');
   for (let row = 0; row < 5; row += 1) {
     for (let col = 0; col < 5; col += 1) {
       if (col !== 2 && col !== 3) assert.equal(result.tiles[row * 5 + col], original[row * 5 + col], `column ${col} remains unchanged`);
     }
   }
+}
+
+// Bomb landing bonus resolution is independent per destination and preserves tile identity/letters.
+{
+  const board = makeBoard();
+  const existingFallingTile = board[2];
+  const generatedTopTile = { id: 900, letter: 'Z', bonus: 'NO', color: 'new' };
+  board[12] = existingFallingTile;
+  board[0] = generatedTopTile;
+  board[13].bonus = '3WS';
+  board[18].bonus = '2WS';
+  const explodedBonuses = new Map([[12, '3WS'], [0, '2WS'], [13, '2LS'], [18, '3WS']]);
+  const transitions = logic.resolveBombLandingBonuses(board, [12, 0, 13, 18], explodedBonuses);
+  assert.equal(board[12], existingFallingTile, 'promoted existing tile keeps object identity');
+  assert.equal(board[12].letter, existingFallingTile.letter, 'promoted existing tile keeps its letter');
+  assert.equal(board[12].bonus, '3WS', 'exploded destination wins when its bonus is stronger');
+  assert.equal(board[0], generatedTopTile, 'promoted newly generated tile keeps object identity');
+  assert.equal(board[0].letter, 'Z', 'random replacement letter is retained after promotion');
+  assert.equal(board[0].bonus, '2WS', 'new top-edge tile is promoted independently');
+  assert.equal(board[13].bonus, '3WS', 'incoming stronger bonus wins independently at another destination');
+  assert.equal(board[18].bonus, '3WS', 'each landing position uses its own exploded bonus');
+  assert.equal(transitions.get(12), '3LS', 'existing tile transition records its incoming bonus');
+  assert.equal(transitions.get(0), 'NO', 'generated tile transition records its random incoming bonus');
 }
 
 // Round summary is stable and handles zero-word rounds without NaN/Infinity.
@@ -114,3 +141,31 @@ console.log('PASS: game-logic tests (rotation, randomize metadata, swap, bomb gr
     'new round resets transient score and time metrics');
 }
 console.log('PASS: round persistence, game-over cancellation, and Play Again source guards');
+
+// Bomb pointer integration: release-to-explode uses the captured target and bounded
+// release validation, never a stale preview as an unconditional fallback.
+{
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(path.join(__dirname, '../js/game.js'), 'utf8');
+  assert.match(source, /function captureBombTargetAtPoint\(x, y\)[\s\S]*?nearest\.distance > bombTargetTolerance/,
+    'Bomb target acquisition accepts a forgiving but bounded neighborhood around an intersection');
+  assert.match(source, /function isReleaseNearBombTarget\(target, x, y\)[\s\S]*?x < boardRect\.left[\s\S]*?Math\.hypot\(x - point\.x, y - point\.y\) <= bombTargetTolerance/,
+    'Bomb release must remain inside the board and close to the captured target');
+  assert.match(source, /bombGestureTarget = captureBombTargetAtPoint\(event\.clientX, event\.clientY\)/,
+    'pointer-down captures the intended Bomb target');
+  assert.match(source, /const candidate = captureBombTargetAtPoint\(event\.clientX, event\.clientY\);[\s\S]*?if \(candidate\) \{[\s\S]*?bombGestureTarget = candidate/,
+    'dragging updates the captured target only when a new valid target is acquired');
+  assert.match(source, /if \(!isCancellation && isReleaseNearBombTarget\(target, event\.clientX, event\.clientY\)\)\s*\{\s*useBombAt\(target\.row, target\.col\);/,
+    'Bomb detonates on release only when the captured target passes release validation');
+  assert.doesNotMatch(source, /findBombBlockAtPoint\(event\.clientX, event\.clientY\)\s*\|\|\s*\(bombTargetPreview/,
+    'stale preview cannot bypass release validation');
+  assert.match(source, /const isCancellation = event\.type === 'pointercancel'/,
+    'pointer cancellation never detonates the Bomb');
+  assert.match(source, /function animateBombMovementPlan\(oldRectsByIndex, movementPlan[\s\S]*?const oldRect = sourceIndex === null \? null : oldRectsByIndex\.get\(sourceIndex\)/,
+    'Bomb animation uses a destination-indexed movement plan rather than tile object identity');
+  assert.match(source, /gameLogic\.resolveBombLandingBonuses\(tiles, rowIndices, landingBonuses\)/,
+    'Bomb bonus resolution uses tested shared logic while preserving tile identity');
+  assert.match(source, /animateBombMovementPlan\(oldRectsByIndex, bombResult\.movementPlan, 300, token, bonusTransitionByIndex\)/,
+    'Bomb uses the precomputed movement plan and per-destination color transition');
+}
