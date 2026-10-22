@@ -22,6 +22,12 @@ function makeBoard(size = 5) {
   assert.equal(once[0], original[20], 'top-left destination receives bottom-left source for clockwise rotation');
   assert.equal(once[12], original[12], 'center tile remains at the center');
   assert.equal(once[0].bonus, original[20].bonus, 'bonus metadata moves with tile identity');
+  for (let destinationIndex = 0; destinationIndex < 25; destinationIndex += 1) {
+    assert.equal(once[destinationIndex], original[logic.rotateClockwiseSourceIndex(destinationIndex, 5)], `DOM source mapping preserves tile identity at destination ${destinationIndex}`);
+  }
+  assert.equal(logic.rotateClockwiseSourceIndex(0, 5), 20, 'top-left destination maps to bottom-left source');
+  assert.equal(logic.rotateClockwiseSourceIndex(12, 5), 12, 'center destination maps to center source');
+  assert.throws(() => logic.rotateClockwiseSourceIndex(25, 5), RangeError);
 }
 
 // Randomize changes only the letter and preserves bonus/color/other metadata.

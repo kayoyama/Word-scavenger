@@ -15,6 +15,16 @@
     return rotated;
   }
 
+  // Return the source index that lands at a destination after a clockwise rotation.
+  function rotateClockwiseSourceIndex(destinationIndex, size) {
+    if (!Number.isInteger(size) || size < 1 || !Number.isInteger(destinationIndex) || destinationIndex < 0 || destinationIndex >= size * size) {
+      throw new RangeError('Rotation destination must be a valid board index');
+    }
+    const row = Math.floor(destinationIndex / size);
+    const col = destinationIndex % size;
+    return (size - 1 - col) * size + row;
+  }
+
   function withRandomizedLetter(tile, letter) {
     if (!tile || typeof tile !== 'object' || typeof letter !== 'string' || letter.length !== 1) {
       throw new TypeError('Randomize requires a tile object and one replacement letter');
@@ -115,6 +125,6 @@
     };
   }
 
-  root.WordGameLogic = Object.freeze({ rotateClockwise, withRandomizedLetter, swapTiles, bombClearAndGravity, resolveBombLandingBonuses, summarizeRound });
+  root.WordGameLogic = Object.freeze({ rotateClockwise, rotateClockwiseSourceIndex, withRandomizedLetter, swapTiles, bombClearAndGravity, resolveBombLandingBonuses, summarizeRound });
   if (typeof module !== 'undefined' && module.exports) module.exports = root.WordGameLogic;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

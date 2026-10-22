@@ -146,3 +146,38 @@ console.log('PASS: long words are excluded from both regular power milestones; c
 }
 console.log('PASS: animation lock and timer-policy source guards');
 
+
+// Rotate is unlimited and does not participate in the word-charge economy.
+{
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(path.join(__dirname, '../js/game.js'), 'utf8');
+  const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+  const rotateBody = source.slice(source.indexOf('  function rotateBoardClockwise('), source.indexOf('  function armRandomize('));
+  assert.doesNotMatch(source, /rotateCharges|ROTATE_CHARGE_CAP/);
+  assert.match(source, /rotateButton\.disabled = !roundActive \|\| boardLocked;/);
+  assert.match(html, /id="rotate-count"[^>]*>∞<\/span>/);
+  assert.doesNotMatch(rotateBody, /scoreWord\(|awardTimeBonus\(|grantActionCharges\(/);
+  assert.match(rotateBody, /animationDuration \+ 60/);
+}
+console.log('PASS: unlimited Rotate and end-frame handoff source guards');
+
+// Bomb visual feedback is present in both themes and remains a separate layer
+// from the existing cascade mechanics.
+{
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(path.join(__dirname, '../js/game.js'), 'utf8');
+  for (const stylesheet of ['style.css', 'style2.css']) {
+    const css = fs.readFileSync(path.join(__dirname, `../css/${stylesheet}`), 'utf8');
+    assert.match(css, /\.bomb-aim-icon/);
+    assert.match(css, /\.bomb-blast-effect/);
+    assert.match(css, /prefers-reduced-motion/);
+  }
+  assert.match(source, /function updateBombAimIcon\(/);
+  assert.match(source, /function showBombExplosion\(/);
+  assert.match(source, /showBombExplosion\(row, col, 260\)/);
+  assert.match(source, /bomb-blast-spark/);
+  assert.match(source, /rotateClockwiseSourceIndex\(destinationIndex, SIZE\)/);
+}
+console.log('PASS: Bomb aiming icon and localized blast source guards');

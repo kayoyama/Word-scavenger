@@ -474,7 +474,7 @@ button:focus-visible { outline: 3px solid #ffe66d; outline-offset: 3px; }
 }
 .bomb-target-cell { border: 2px solid rgba(255, 221, 163, .95); border-radius: clamp(5px, 1.4vw, 10px); background: rgba(255, 89, 64, .12); }
 @keyframes bomb-target-pulse { from { filter: brightness(.92); opacity: .78; } to { filter: brightness(1.22); opacity: 1; } }
-.tile.bomb-exploding { z-index: 5; animation: bomb-tile-explosion 220ms ease-in forwards; pointer-events: none; }
+.tile.bomb-exploding { z-index: 5; animation: bomb-tile-explosion 260ms ease-in forwards; pointer-events: none; }
 @keyframes bomb-tile-explosion {
   0% { opacity: 1; transform: scale(1) rotate(0deg); filter: brightness(1); box-shadow: inset 0 2px 0 rgba(255,255,255,.42), 0 0 0 rgba(255,90,45,0); }
   28% { opacity: 1; transform: scale(1.12) rotate(3deg); filter: brightness(2.2) saturate(1.4); box-shadow: 0 0 24px 7px rgba(255,115,50,.95); }
@@ -777,3 +777,42 @@ body.theme-style2 .tile.bonus-3ls .tile-value, body.theme-style2 .tile.bonus-3ws
 .tile.selected .tile-value, .tile.selected .tile-bonus-mark { color: #fff !important; text-shadow: 0 1px 1px rgba(0,0,0,.7), 0 0 1px rgba(0,0,0,.8) !important; }
 .timer-block > span:first-child { text-align: left !important; font-size: 12px !important; }
 .score-block > span:first-child { text-align: right !important; font-size: 12px !important; }
+
+
+/* Bomb aiming icon and localized blast; shared visual language across themes. */
+.bomb-aim-icon {
+  position: absolute; z-index: 10; pointer-events: none; transform: translate(-50%, -65%);
+  font-size: clamp(22px, 5vw, 32px); line-height: 1; filter: drop-shadow(0 2px 3px rgba(0,0,0,.8));
+  animation: bomb-aim-bob .45s ease-in-out infinite alternate;
+}
+@keyframes bomb-aim-bob { from { translate: 0 0; } to { translate: 0 -3px; } }
+.bomb-blast-effect {
+  position: absolute; z-index: 9; pointer-events: none; border-radius: 12px; overflow: visible;
+  background: radial-gradient(ellipse at center, rgba(255,255,224,1) 0%, rgba(255,211,82,.98) 17%, rgba(255,106,35,.88) 39%, rgba(239,48,24,.42) 60%, transparent 76%);
+  animation: bomb-local-blast 260ms cubic-bezier(.16,.72,.25,1) both;
+}
+.bomb-blast-effect::before, .bomb-blast-effect::after {
+  content: ""; position: absolute; pointer-events: none;
+}
+.bomb-blast-effect::before {
+  inset: 4%;
+  background: radial-gradient(ellipse at center, rgba(255,255,230,.98) 0%, rgba(255,190,55,.94) 24%, rgba(255,83,31,.72) 50%, transparent 72%);
+  clip-path: polygon(50% 0%, 60% 22%, 82% 7%, 76% 32%, 100% 42%, 78% 53%, 94% 78%, 67% 70%, 50% 100%, 39% 73%, 12% 90%, 23% 61%, 0% 50%, 23% 40%, 9% 13%, 38% 27%);
+  filter: drop-shadow(0 0 7px rgba(255,111,28,.95));
+  animation: bomb-blast-starburst 260ms ease-out both;
+}
+.bomb-blast-effect::after {
+  inset: 9%; border: 3px solid rgba(255,250,196,.98); border-radius: 50%;
+  box-shadow: 0 0 18px 5px rgba(255,111,28,.95), inset 0 0 12px rgba(255,195,65,.75);
+  animation: bomb-blast-ring 260ms ease-out both;
+}
+.bomb-blast-spark {
+  position: absolute; z-index: 2; left: 50%; top: 50%; width: 5px; height: 14px;
+  border-radius: 99px; background: #fff8b5; box-shadow: 0 0 7px 2px rgba(255,133,30,.95);
+  transform-origin: 50% 50%; animation: bomb-blast-spark 250ms cubic-bezier(.12,.65,.3,1) both;
+}
+@keyframes bomb-local-blast { 0% { opacity: 0; transform: scale(.55); } 18% { opacity: 1; transform: scale(1.04); } 42% { opacity: 1; transform: scale(1.08); } 100% { opacity: 0; transform: scale(1.18); } }
+@keyframes bomb-blast-starburst { 0% { opacity: 0; transform: scale(.25) rotate(-12deg); } 22% { opacity: 1; transform: scale(1.04) rotate(5deg); } 100% { opacity: 0; transform: scale(1.2) rotate(18deg); } }
+@keyframes bomb-blast-ring { 0% { opacity: 0; transform: scale(.3); } 22% { opacity: 1; transform: scale(.75); } 100% { opacity: 0; transform: scale(1.25); } }
+@keyframes bomb-blast-spark { 0% { opacity: 0; transform: translate(-50%,-50%) rotate(var(--spark-angle)) translateY(0) scale(.3); } 18% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%,-50%) rotate(var(--spark-angle)) translateY(calc(0px - var(--spark-distance))) scale(.15); } }
+@media (prefers-reduced-motion: reduce) { .bomb-aim-icon { animation: none; } .bomb-blast-effect, .bomb-blast-effect::before, .bomb-blast-effect::after, .bomb-blast-spark { animation-duration: .01ms; } }

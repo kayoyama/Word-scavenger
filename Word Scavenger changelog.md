@@ -469,3 +469,36 @@ The history available for this update includes the changelog source, a Classic M
 - `node --test tests/game-logic.test.js tests/scoring-rules.test.js` — passed, including movement-plan and promoted-tile identity/letter regression tests.
 - ZIP integrity and archive-root layout checked after packaging.
 - Actual browser animation/color-transition verification remains outstanding; automated tests do not prove visual smoothness.
+
+
+## 2026-10-22 — Rotate and Bomb visual refinement
+
+### Changed
+- Made **Rotate** unlimited-use. It no longer consumes or earns charges and does not award score or time; the control displays an infinity symbol. Existing timer pausing during the rotation animation is preserved.
+- Added a bomb icon that follows the pointer while aiming, while retaining the existing 2×2 target preview and release validation.
+- Added a brief localized blast/ring effect before the existing Bomb explosion and falling cascade. The effect is styled in both themes and respects reduced-motion preferences.
+- Delayed the Rotate board-state handoff slightly beyond the CSS animation duration so the final rotation frame can paint before the matrix is committed and transforms are cleared, targeting the reported end-of-animation blink.
+
+### Preserved
+- Existing Classic Mode scoring, time rewards, weighted letter/bonus generation, Randomize and Swap rules, both themes, Bomb target validation, per-position bonus resolution, movement plan, and unchanged tiles below the explosion.
+- No fifth power was added; current powers remain the focus until their behavior is verified.
+
+### Verification
+- Automated syntax and existing regression tests are recorded separately from browser visual testing. The Rotate blink and new Bomb visuals require Live Server/browser verification before release.
+
+## 2026-10-22 — Rotate color handoff and Bomb blast clarity
+
+### Fixed
+- Changed Rotate's completion handoff to reorder the existing tile DOM nodes into their clockwise destination order instead of rewriting each cell's contents. This keeps each tile's existing letter, bonus classes, and color attached to the same element through the final frame, addressing the reported blink when source and destination bonus colors differ.
+- Added a tested clockwise destination-to-source index helper and refreshed each moved tile's board index and accessible row/column label after rotation.
+
+### Changed
+- Strengthened the localized Bomb effect into a brighter radial/starburst flash with an expanding ring and eight short sparks. The existing 2×2 targeting, explosion clearing, bonus resolution, and falling cascade remain unchanged.
+- Aligned the blast and cleared-tile animation window to 260 ms so the blast reads clearly before the cascade begins.
+- Applied the visual effect consistently to both themes and retained reduced-motion support.
+
+### Verification
+- `node --check js/game.js` — passed.
+- `node --check js/game-logic.js` — passed.
+- `node --test tests/game-logic.test.js tests/scoring-rules.test.js` — passed, including clockwise source-index mapping and source guards for the Rotate handoff and Bomb sparks.
+- Browser visual verification remains outstanding. Automated tests do not prove that the Rotate blink is gone or that the explosion looks correct in Live Server.

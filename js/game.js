@@ -10,7 +10,6 @@
   const CHRONO_COMBO_WINDOW_MS = 7000;
   const CHRONO_COMBO_MAX_SECONDS = 20;
   const SIZE = 5;
-  const ROTATE_CHARGE_CAP = 10;
   const RANDOMIZE_CHARGE_CAP = 5;
   const RANDOMIZE_WORDS_PER_CHARGE = 5;
   const BOMB_CHARGE_CAP = 3;
@@ -37,6 +36,8 @@
   let rotateCenterOverlay = null;
   let rotateCenterOriginal = null;
   let bombTargetPreview = null;
+  let bombAimIcon = null;
+  let bombBlastEffect = null;
   let bombGestureTarget = null;
   let bombGesturePointerId = null;
   const wordlistSet = new Set(Array.isArray(window.wordlist) ? window.wordlist : []);
@@ -48,7 +49,6 @@
   let isPaused = false;
   let pausedComboTimer = false;
   let actionBusy = false;
-  let rotateCharges = 0;
   let randomizeCharges = 0;
   let randomizeWordProgress = 0;
   let randomizeMode = false;
@@ -233,7 +233,7 @@
     const bombButton = el('bomb-action');
     const swapButton = el('swap-action');
     if (!rotateButton || !randomizeButton || !bombButton || !swapButton) return;
-    el('rotate-count').textContent = `${rotateCharges} / ${ROTATE_CHARGE_CAP}`;
+    el('rotate-count').textContent = '∞';
     el('randomize-count').textContent = `${randomizeCharges} / ${RANDOMIZE_CHARGE_CAP}`;
     el('bomb-count').textContent = `${bombCharges} / ${BOMB_CHARGE_CAP}`;
     el('swap-count').textContent = `${swapCharges} / ${SWAP_CHARGE_CAP}`;
@@ -243,11 +243,11 @@
     el('bomb-hint').textContent = bombMode ? 'Click the intersection of four tiles' : 'Every 10 words under 6 letters, or any 6+ letter word';
     el('swap-hint').textContent = swapMode ? (swapFirstIndex === null ? 'Select the first tile' : 'Select the second tile') : 'Every 15 words under 6 letters, or any 7+ letter word';
     const boardLocked = isPowerActionLocked();
-    rotateButton.disabled = !roundActive || boardLocked || rotateCharges <= 0;
+    rotateButton.disabled = !roundActive || boardLocked;
     randomizeButton.disabled = !roundActive || boardLocked || (randomizeCharges <= 0 && !randomizeMode);
     bombButton.disabled = !roundActive || boardLocked || (bombCharges <= 0 && !bombMode);
     swapButton.disabled = !roundActive || boardLocked || (swapCharges <= 0 && !swapMode);
-    [[rotateButton, rotateCharges > 0], [randomizeButton, randomizeCharges > 0 || randomizeMode], [bombButton, bombCharges > 0 || bombMode], [swapButton, swapCharges > 0 || swapMode]].forEach(([button, ready]) => { button.classList.toggle('power-ready', Boolean(ready) && !button.disabled); button.classList.toggle('power-locked', button.disabled); });
+    [[rotateButton, roundActive], [randomizeButton, randomizeCharges > 0 || randomizeMode], [bombButton, bombCharges > 0 || bombMode], [swapButton, swapCharges > 0 || swapMode]].forEach(([button, ready]) => { button.classList.toggle('power-ready', Boolean(ready) && !button.disabled); button.classList.toggle('power-locked', button.disabled); });
     board.classList.toggle('board-actions-locked', boardLocked);
     randomizeButton.classList.toggle('action-armed', randomizeMode);
     bombButton.classList.toggle('action-armed', bombMode);
@@ -255,7 +255,6 @@
   }
 
   function grantActionCharges(wordLength) {
-    rotateCharges = Math.min(ROTATE_CHARGE_CAP, rotateCharges + 1);
     if (randomizeCharges < RANDOMIZE_CHARGE_CAP) {
       randomizeWordProgress += 1;
       if (randomizeWordProgress >= RANDOMIZE_WORDS_PER_CHARGE) {
@@ -394,6 +393,7 @@
       hideBombTargetPreview();
       return;
     }
+    updateBombAimIcon(x, y);
     const nearest = nearestBombBlockAtPoint(x, y);
     if (!nearest) { hideBombTargetPreview(); return; }
     const geometry = getBombBlockGeometry(nearest.row, nearest.col);
@@ -421,7 +421,62 @@
 
   function hideBombTargetPreview() {
     if (bombTargetPreview) bombTargetPreview.remove();
+    if (bombAimIcon) bombAimIcon.remove();
     bombTargetPreview = null;
+    bombAimIcon = null;
+  }
+
+  function updateBombAimIcon(x, y) {
+    if (!bombMode || !boardStage) return;
+    const boardRect = board.getBoundingClientRect();
+    if (x < boardRect.left || x > boardRect.right || y < boardRect.top || y > boardRect.bottom) {
+      if (bombAimIcon) bombAimIcon.remove();
+      bombAimIcon = null;
+      return;
+    }
+    if (!bombAimIcon) {
+      bombAimIcon = document.createElement('span');
+      bombAimIcon.className = 'bomb-aim-icon';
+      bombAimIcon.textContent = '💣';
+      bombAimIcon.setAttribute('aria-hidden', 'true');
+      boardStage.appendChild(bombAimIcon);
+    }
+    const stageRect = boardStage.getBoundingClientRect();
+    bombAimIcon.style.left = `${x - stageRect.left}px`;
+    bombAimIcon.style.top = `${y - stageRect.top}px`;
+  }
+
+  function showBombExplosion(row, col, duration = 220) {
+    if (!boardStage) return;
+    const geometry = getBombBlockGeometry(row, col);
+    if (!geometry) return;
+    if (bombBlastEffect) bombBlastEffect.remove();
+    const stageRect = boardStage.getBoundingClientRect();
+    const effect = document.createElement('div');
+    effect.className = 'bomb-blast-effect';
+    effect.setAttribute('aria-hidden', 'true');
+    effect.style.left = `${geometry.left - stageRect.left}px`;
+    effect.style.top = `${geometry.top - stageRect.top}px`;
+    effect.style.width = `${geometry.right - geometry.left}px`;
+    effect.style.height = `${geometry.bottom - geometry.top}px`;
+    const sparkDistance = Math.round(Math.min(geometry.right - geometry.left, geometry.bottom - geometry.top) * 0.42);
+    for (let index = 0; index < 8; index += 1) {
+      const spark = document.createElement('span');
+      spark.className = 'bomb-blast-spark';
+      spark.setAttribute('aria-hidden', 'true');
+      spark.style.setProperty('--spark-angle', `${index * 45}deg`);
+      spark.style.setProperty('--spark-distance', `${sparkDistance}px`);
+      spark.style.animationDelay = `${(index % 3) * 8}ms`;
+      effect.appendChild(spark);
+    }
+    boardStage.appendChild(effect);
+    bombBlastEffect = effect;
+    const removeEffect = () => {
+      if (effect.parentNode) effect.remove();
+      if (bombBlastEffect === effect) bombBlastEffect = null;
+    };
+    effect.addEventListener('animationend', removeEffect, { once: true });
+    window.setTimeout(removeEffect, duration + 100);
   }
 
   function captureTilePositions() {
@@ -535,6 +590,7 @@
     cancelPowerModes();
     bombCharges -= 1;
     setActionsBusy(true);
+    showBombExplosion(row, col, 260);
     const rowIndices = [row * SIZE + col, row * SIZE + col + 1, (row + 1) * SIZE + col, (row + 1) * SIZE + col + 1];
     const oldRectsByIndex = captureTileRectsByIndex();
     const bombedElements = rowIndices.map((index) => board.querySelector(`[data-index="${index}"]`)).filter(Boolean);
@@ -566,7 +622,7 @@
       scheduleRefillTimer(() => {
         setActionsBusy(false);
       }, 340, token);
-    }, 220, token);
+    }, 260, token);
     renderActionCharges();
     return true;
   }
@@ -613,8 +669,7 @@
   // Rotate the complete 5x5 matrix 90 degrees clockwise in one 400 ms animation.
   // Tile objects move intact, preserving each letter's bonus type and color.
   function rotateBoardClockwise() {
-    if (!roundActive || isPowerActionLocked() || rotateCharges <= 0) return;
-    rotateCharges -= 1;
+    if (!roundActive || isPowerActionLocked()) return;
     cancelPowerModes();
     selectedIndices = [];
     isSelecting = false;
@@ -660,17 +715,31 @@
     // mid-animation: that made the outer tiles appear to change letters in place.
     board.querySelectorAll('.tile').forEach((tile) => tile.classList.add('action-rotate-counter'));
 
-    // Commit the rotated matrix only when the visual rotation finishes.
+    // At the end, move the existing DOM tile nodes into their rotated grid order.
+    // Updating each cell's content instead causes a one-frame bonus-color flash when
+    // the source and destination colors differ. Reordering preserves each tile's
+    // actual letter/bonus styling while the board transform is removed in the same task.
     scheduleRefillTimer(() => {
+      const elementsBySourceIndex = new Map(
+        Array.from(board.querySelectorAll('.tile')).map((tileElement) => [Number(tileElement.dataset.index), tileElement])
+      );
       tiles = rotated;
-      for (let index = 0; index < tiles.length; index += 1) updateTileElement(index);
+      tiles.forEach((tileData, destinationIndex) => {
+        const sourceIndex = gameLogic.rotateClockwiseSourceIndex(destinationIndex, SIZE);
+        const tileElement = elementsBySourceIndex.get(sourceIndex);
+        if (!tileElement) return;
+        tileElement.dataset.index = String(destinationIndex);
+        const letterValue = LETTER_POINTS[tileData.letter.charCodeAt(0) - 64] || 0;
+        tileElement.setAttribute('aria-label', `Row ${Math.floor(destinationIndex / SIZE) + 1}, column ${(destinationIndex % SIZE) + 1}, letter ${tileData.letter}, ${letterValue} points${tileData.bonus === 'NO' ? '' : `, ${tileData.bonus}`}`);
+        board.appendChild(tileElement);
+      });
       board.querySelectorAll('.action-rotate-counter').forEach((tile) => tile.classList.remove('action-rotate-counter'));
       board.classList.remove('board-rotate-spin');
       cleanupRotateCenterOverlay();
       setActionsBusy(false);
       resumeRoundTimer(timerWasRunning);
       resumeChronoComboTimer(chronoWasRunning);
-    }, animationDuration, token);
+    }, animationDuration + 60, token);
     renderActionCharges();
   }
 
@@ -778,6 +847,9 @@
 
   function cancelRefillSequence() {
     cleanupRotateCenterOverlay();
+    if (bombBlastEffect) bombBlastEffect.remove();
+    bombBlastEffect = null;
+    hideBombTargetPreview();
     board.classList.remove('board-rotate-spin');
     board.querySelectorAll('.action-rotate-counter').forEach((tile) => tile.classList.remove('action-rotate-counter'));
     refillToken += 1;
@@ -928,14 +1000,13 @@
     selectedIndices = [];
     isSelecting = false;
     actionBusy = false;
-    rotateCharges = 0;
-    randomizeCharges = 0;
+    randomizeCharges = 5;
     randomizeWordProgress = 0;
     randomizeMode = false;
-    bombCharges = 0;
+    bombCharges = 3;
     bombWordProgress = 0;
     bombMode = false;
-    swapCharges = 0;
+    swapCharges = 3;
     swapWordProgress = 0;
     swapMode = false;
     swapFirstIndex = null;
@@ -1689,6 +1760,7 @@
   board.addEventListener('pointermove', (event) => {
     if (bombMode && roundActive && !actionBusy) {
       board.querySelectorAll('.power-target-hover').forEach((tile) => tile.classList.remove('power-target-hover'));
+      updateBombAimIcon(event.clientX, event.clientY);
       if (bombGesturePointerId === event.pointerId) {
         // While the player is pressing, update the captured target only when the
         // pointer is within a bounded acquisition radius of a real intersection.
