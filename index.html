@@ -46,6 +46,27 @@
       </div>
       <p class="menu-note">A 2-minute word challenge</p>
 
+      <div id="round-power-overlay" class="modal-overlay" hidden>
+        <section class="tutorial-card round-power-card" role="dialog" aria-modal="true" aria-labelledby="round-power-title">
+          <p class="eyebrow">BEFORE YOU PLAY</p>
+          <h2 id="round-power-title">Choose Your Round Power</h2>
+          <p class="round-power-intro">Choose one special power for this round. Round Powers are mutually exclusive.</p>
+          <div class="round-power-options" role="radiogroup" aria-label="Round Power">
+            <button type="button" class="round-power-option is-selected" data-round-power="wild-letter" role="radio" aria-checked="true">
+              <strong>Wild Letter</strong><span class="round-power-description">Transform one tile into any letter worth 1 point.</span><span class="round-power-charges">3 charges per round</span>
+            </button>
+            <button type="button" class="round-power-option" data-round-power="anchor-word" role="radio" aria-checked="false">
+              <strong>Chain</strong><span class="round-power-description">Protect 2–5 connected tiles while you wait for letters like S, ER, or ING to extend a word.</span><span class="round-power-charges">1 charge per round</span>
+            </button>
+          </div>
+          <p id="round-power-status" class="round-power-status" aria-live="polite">Wild Letter selected · 3 charges per round.</p>
+          <div class="tutorial-actions">
+            <button id="round-power-start-button" class="menu-button primary" type="button">Start Round</button>
+            <button id="round-power-cancel-button" class="menu-button" type="button">Cancel</button>
+          </div>
+        </section>
+      </div>
+
       <div id="tutorial-overlay" class="modal-overlay" hidden>
         <section class="tutorial-card" role="dialog" aria-modal="true" aria-labelledby="tutorial-title">
           <p class="eyebrow">QUICK TUTORIAL</p>
@@ -135,6 +156,9 @@
       <div id="combo-slot" class="combo-slot" aria-live="polite"></div>
 
       <div class="board-actions" aria-label="Board actions">
+        <button id="wild-letter-action" class="board-action wild-letter-action" type="button" disabled>
+          <span id="round-power-action-symbol" class="action-symbol" aria-hidden="true">W</span><span class="action-copy"><strong id="round-power-action-label">WILD LETTER</strong><small id="wild-letter-hint">Choose a tile, then its letter</small></span><span id="wild-letter-count" class="action-count">0 / 3</span>
+        </button>
         <button id="rotate-action" class="board-action rotate-action" type="button" disabled>
           <span class="action-symbol" aria-hidden="true">↻</span><span class="action-copy"><strong>ROTATE</strong><small>Turn board 90° clockwise</small></span><span id="rotate-count" class="action-count" aria-label="Unlimited uses" title="Unlimited uses">∞</span>
         </button>

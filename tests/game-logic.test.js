@@ -88,6 +88,55 @@ function makeBoard(size = 5) {
   }
 }
 
+
+// Bomb cascade around protected Chain tiles: only the anchored tile is immune.
+{
+  const original = makeBoard();
+  original[7].isAnchored = true; // fixed tile above/inside the affected two-column region
+  original[12].isAnchored = true; // protected tile in the 2x2 target
+  let nextId = 500;
+  const result = logic.bombClearAndGravity(original, 5, 2, 2, () => ({ id: nextId++, letter: 'Z', bonus: 'NO' }));
+  assert.equal(result.tiles[7], original[7], 'anchored tile above the blast stays at its original index');
+  assert.equal(result.tiles[12], original[12], 'anchored tile inside the blast survives in place');
+  assert.ok(result.clearedIndices.includes(13), 'unanchored target tile beside a protected tile is still cleared');
+  assert.ok(result.clearedIndices.includes(17), 'unanchored target tile below the protected tile is still cleared');
+  assert.ok(!result.clearedIndices.includes(12), 'protected target tile is not destroyed');
+  assert.equal(result.tiles[10], original[10], 'columns outside the blast/cascade stay unchanged');
+  assert.equal(result.tiles[11], original[11], 'neighboring column outside the blast/cascade stays unchanged');
+  for (let row = 0; row <= 3; row += 1) {
+    for (const col of [2, 3]) {
+      const tile = result.tiles[row * 5 + col];
+      assert.ok(tile, `affected position ${row},${col} is filled`);
+    }
+  }
+  assert.equal(result.newTiles.size, result.clearedIndices.length, 'new tiles fill the unprotected cleared positions');
+}
+
+// Bonus promotion must never alter a protected Chain tile.
+{
+  const board = makeBoard();
+  board[12].isAnchored = true;
+  const originalBonus = board[12].bonus;
+  const transitions = logic.resolveBombLandingBonuses(board, [12], new Map([[12, '3WS']]));
+  assert.equal(board[12].bonus, originalBonus, 'protected tile bonus is untouched');
+  assert.equal(transitions.has(12), false, 'protected tile has no landing-bonus transition');
+}
+
+
+// Bomb gravity passes unchained tiles through fixed Chain tiles and only creates
+// new letters for topmost unchained vacancies after all available tiles fall.
+{
+  const original = makeBoard();
+  original[7].isAnchored = true; // fixed at row 1, in the first affected column
+  const upperTile = original[2]; // unchained tile above the Chain tile
+  let nextId = 700;
+  const result = logic.bombClearAndGravity(original, 5, 2, 2, () => ({ id: nextId++, letter: 'Z', bonus: 'NO' }));
+  assert.equal(result.tiles[7], original[7], 'Chain tile stays fixed');
+  assert.equal(result.tiles[17], upperTile, 'unchained tile cascades past the fixed Chain tile into a lower vacancy');
+  assert.equal(result.newTiles.size, result.clearedIndices.length, 'new letters only replace the vacancies left after available unchained tiles fall');
+  assert.equal(result.movementPlan.get(2).isNew, true, 'new letter spawns at a top vacancy only after the unchained source tile cascades down');
+}
+
 // Bomb landing bonus resolution is independent per destination and preserves tile identity/letters.
 {
   const board = makeBoard();
@@ -137,8 +186,8 @@ console.log('PASS: game-logic tests (rotation, randomize metadata, swap, bomb gr
   assert.match(source, /stats\.rounds\.unshift\(\{\s*\.\.\.roundRecord/s, 'round summary is persisted into Recent Games');
   assert.match(source, /function saveStats\(\)[\s\S]*?localStorage\.setItem\(STORAGE_KEY, JSON\.stringify\(stats\)\)/,
     'persistent stats use the existing local-storage key');
-  assert.match(source, /el\('play-again-button'\)\.addEventListener\('click', startGame\)/,
-    'Play Again starts a fresh round through the normal reset path');
+  assert.match(source, /el\('play-again-button'\)\.addEventListener\('click', requestNewGame\)/,
+    'Play Again returns through the pre-round power selection before starting a fresh round');
   assert.match(source, /const swappedTileData = new Set\(\[tiles\[firstIndex\], tiles\[secondIndex\]\]\)/,
     'Swap animation tracks the two swapped tile objects rather than undefined identifiers');
   assert.doesNotMatch(source, /new Set\(\[first, second\]\)/,
@@ -170,7 +219,7 @@ console.log('PASS: round persistence, game-over cancellation, and Play Again sou
     'pointer cancellation never detonates the Bomb');
   assert.match(source, /function animateBombMovementPlan\(oldRectsByIndex, movementPlan[\s\S]*?const oldRect = sourceIndex === null \? null : oldRectsByIndex\.get\(sourceIndex\)/,
     'Bomb animation uses a destination-indexed movement plan rather than tile object identity');
-  assert.match(source, /gameLogic\.resolveBombLandingBonuses\(tiles, rowIndices, landingBonuses\)/,
+  assert.match(source, /gameLogic\.resolveBombLandingBonuses\(tiles, bombResult\.clearedIndices, landingBonuses\)/,
     'Bomb bonus resolution uses tested shared logic while preserving tile identity');
   assert.match(source, /animateBombMovementPlan\(oldRectsByIndex, bombResult\.movementPlan, 300, token, bonusTransitionByIndex\)/,
     'Bomb uses the precomputed movement plan and per-destination color transition');

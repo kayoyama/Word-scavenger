@@ -544,3 +544,72 @@ body.theme-style2 .tile.bonus-3ls .tile-value, body.theme-style2 .tile.bonus-3ws
 @keyframes bomb-blast-ring { 0% { opacity: 0; transform: scale(.3); } 22% { opacity: 1; transform: scale(.75); } 100% { opacity: 0; transform: scale(1.25); } }
 @keyframes bomb-blast-spark { 0% { opacity: 0; transform: translate(-50%,-50%) rotate(var(--spark-angle)) translateY(0) scale(.3); } 18% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%,-50%) rotate(var(--spark-angle)) translateY(calc(0px - var(--spark-distance))) scale(.15); } }
 @media (prefers-reduced-motion: reduce) { .bomb-aim-icon { animation: none; } .bomb-blast-effect, .bomb-blast-effect::before, .bomb-blast-effect::after, .bomb-blast-spark { animation-duration: .01ms; } }
+body.theme-style2 .round-power-option { border-color: #B7CDEB; background: #FFFFFF; color: #102B55; }
+body.theme-style2 .round-power-option span,
+body.theme-style2 .round-power-intro,
+body.theme-style2 .round-power-status { color: #536B89; }
+body.theme-style2 .round-power-option.is-selected { border-color: #0878F9; background: #E6F8FF; box-shadow: inset 4px 0 0 #0878F9; }
+
+/* Round Power button sits centered beneath the four standard board actions. */
+.wild-letter-action { order: 5; grid-column: 1 / -1; width: min(50%, 280px); justify-self: center; border-color: #ff4fd8 !important; background: linear-gradient(115deg, rgba(111,22,143,.98), rgba(10,74,111,.98)) !important; box-shadow: 0 0 0 1px rgba(255,79,216,.32), 0 0 18px rgba(255,79,216,.2) !important; }
+.rotate-action { order: 1; }
+.randomize-action { order: 2; }
+.bomb-action { order: 3; }
+.swap-action { order: 4; }
+.wild-letter-action .action-symbol, .wild-letter-action .action-count { color: #ff79e2 !important; border-color: rgba(255,79,216,.8) !important; }
+.wild-letter-action.power-ready:not(:disabled) { box-shadow: 0 0 0 1px rgba(255,79,216,.75), 0 0 20px rgba(255,79,216,.4) !important; }
+.wild-letter-tile { background: linear-gradient(140deg, #ff4fd8 0%, #b43dff 48%, #21d4fd 100%) !important; color: #fff !important; border: 2px solid #fff !important; box-shadow: inset 0 0 0 2px rgba(255,255,255,.24), 0 0 0 2px rgba(183,61,255,.55), 0 0 18px rgba(255,79,216,.72), 0 0 30px rgba(33,212,253,.34) !important; }
+.wild-letter-tile .tile-letter { color: #fff !important; text-shadow: 0 2px 3px rgba(35,0,65,.75) !important; }
+.wild-letter-tile .tile-value { color: #fff !important; background: rgba(37,0,66,.7) !important; border-radius: 5px; padding: 1px 4px; text-shadow: none !important; }
+
+
+/* Wild Letter UI corrections — 2026-10-22. */
+.wild-letter-tile, body.theme-style2 .wild-letter-tile {
+  background: #ffffff !important; /* Style 2 default tile background */
+  color: #102b55 !important;
+  border: 2px solid rgba(47,139,255,.95) !important;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.95), inset 0 -5px 0 rgba(16,43,85,.10),
+    0 3px 0 rgba(0,43,100,.32), 0 0 0 2px rgba(47,139,255,.9),
+    0 0 13px 4px rgba(47,139,255,.72) !important;
+  text-shadow: none !important;
+}
+.wild-letter-tile .tile-letter { color: #102b55 !important; text-shadow: none !important; }
+.wild-letter-tile .tile-value { color: #102b55 !important; background: transparent !important; padding: 0 !important; text-shadow: 0 1px 0 rgba(255,255,255,.85) !important; }
+.wild-letter-action { order: 5; grid-column: auto; width: auto; justify-self: stretch; background: rgba(16,43,85,.92) !important; border-color: rgba(255,197,46,.9) !important; box-shadow: 0 3px 0 rgba(0,0,0,.16) !important; }
+.wild-letter-action .action-symbol, .wild-letter-action .action-count { color: #ffc52e !important; border-color: rgba(255,197,46,.8) !important; }
+.wild-letter-action.power-ready:not(:disabled) { box-shadow: 0 0 0 1px rgba(255,197,46,.85), 0 0 12px rgba(255,197,46,.35) !important; }
+.board-actions { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; gap: clamp(3px, 1vw, 7px) !important; }
+.board-action { min-width: 0; padding: 6px 3px; }
+@media (max-width: 380px) { .board-actions { width: 96vw; gap: 3px !important; } .board-action .action-symbol { font-size: 20px; } .board-action .action-copy strong { font-size: clamp(7px, 2.15vw, 9px) !important; letter-spacing: 0; } .board-action .action-count { font-size: 8px; padding: 2px; } }
+
+/* Wild Letter follow-up: keep Style 2's white tile and center the super power. */
+body.theme-style2 .wild-letter-tile {
+  background: #ffffff !important;
+  color: #102b55 !important;
+  border: 2px solid rgba(255,197,46,.98) !important;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.95), inset 0 -5px 0 rgba(16,43,85,.10),
+    0 3px 0 rgba(0,43,100,.32), 0 0 0 2px rgba(255,197,46,.9),
+    0 0 13px 4px rgba(255,197,46,.62) !important;
+}
+body.theme-style2 .wild-letter-tile .tile-letter,
+body.theme-style2 .wild-letter-tile .tile-value { color: #102b55 !important; text-shadow: none !important; background: transparent !important; }
+.wild-letter-action { order: 3 !important; grid-column: auto !important; width: auto !important; justify-self: stretch !important; }
+.rotate-action { order: 1 !important; }
+.randomize-action { order: 2 !important; }
+.bomb-action { order: 4 !important; }
+.swap-action { order: 5 !important; }
+
+
+/* Phase 3 — Chain Round Power. Protected tiles stay legible and visibly linked. */
+.tile.anchor-word-tile {
+  border: 2px solid rgba(255, 220, 91, .98) !important;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,.18), 0 0 0 2px rgba(255,220,91,.9), 0 0 12px 3px rgba(255,205,60,.65) !important;
+  position: relative; z-index: 2;
+}
+.anchor-word-action { border-color: #ffe08a !important; box-shadow: 0 0 0 1px rgba(255,220,91,.85), 0 0 16px rgba(255,210,64,.38) !important; }
+.anchor-word-action .action-symbol, .anchor-word-action .action-count { color: #ffe08a !important; border-color: rgba(255,220,91,.85) !important; }
+
+/* Round Power cards explain each power and show its charge count. */
+.round-power-option .round-power-description { line-height: 1.35; }
+.round-power-option .round-power-charges { font-weight: 800; margin-top: 2px; }
+#round-power-action-symbol svg { display: block; width: 1.05em; height: 1.05em; }

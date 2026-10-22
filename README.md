@@ -126,3 +126,13 @@ From the project root, run:
 - `node tests/game-logic.test.js` — clockwise rotation and four-turn identity, tile-preserving swap, Bomb gravity/refill invariants, and round-summary arithmetic.
 
 These tests validate pure logic and source-level invariants. They do not substitute for live browser testing of animations, pointer targeting, localStorage, or PWA installation/offline behavior.
+
+
+### Chain Round Power (Phase 3)
+
+- Choose either Wild Letter or Chain before the round; they are mutually exclusive. The None option is currently removed.
+- Chain has one non-refillable charge. Activate it, then drag across any connected sequence of 2–5 tiles; it does not need to spell a valid word and setup does not score or consume tiles.
+- Chain is intended to protect a short tile sequence while waiting for letters such as S, ER, or ING to extend a word. The pre-round selector describes each power and shows its charge count.
+- Chained tiles retain their identities through Rotate and are individually protected from Randomize, Swap, and Bomb. Bombs still destroy unprotected tiles in the normal blast area. During the cascade, unchained tiles fall through available unchained positions while chained tiles stay fixed; new letters spawn only in top vacancies left after available tiles have moved.
+- Chained tiles used in a later valid word are consumed and replaced normally; the replacement tiles are not anchored.
+- The middle power button reflects the selected Round Power (Wild Letter or Chain).

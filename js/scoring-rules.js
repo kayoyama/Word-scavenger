@@ -22,7 +22,13 @@
     let wordMultiplier = 1;
     indices.forEach((index) => {
       const tile = tiles[index];
-      const points = letterPoints[tile.letter.charCodeAt(0) - 64] || 0;
+      const points = tile.isWildLetter ? 1 : (letterPoints[tile.letter.charCodeAt(0) - 64] || 0);
+      if (tile.isWildLetter) {
+        // A Wild Letter is a replacement tile: exactly one point, with no inherited
+        // letter or word bonus metadata affecting its scoring contribution.
+        letterScore += 1;
+        return;
+      }
       if (tile.bonus === '2LS') letterScore += points * 2;
       else if (tile.bonus === '3LS') letterScore += points * 3;
       else letterScore += points;

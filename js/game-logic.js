@@ -51,35 +51,51 @@
     const movedTiles = new Set();
     const newTiles = new Set();
     const sourceByDestination = new Map();
-    // Destination-indexed movement plan is independent of tile object identity.
-    // sourceIndex is null for newly generated tiles entering from above.
     const movementPlan = new Map();
-    const clearedIndices = [
+    const targetIndices = [
       row * size + col, row * size + col + 1,
       (row + 1) * size + col, (row + 1) * size + col + 1
     ];
+    const targetSet = new Set(targetIndices);
+    const clearedIndices = targetIndices.filter((index) => !items[index]?.isAnchored);
 
-    // Cascade only the area above the explosion. Rows below the 2×2 target
-    // remain exactly where they are, with their original tile objects/metadata.
-    // Two fresh rows enter at the top; existing tiles above fall down two rows.
+    // Chain protects individual tiles, not columns or regions. Keep each chained
+    // tile fixed, but let every unchained tile in the affected columns fall through
+    // the remaining unchained slots, even when that means passing a fixed Chain
+    // tile. Generate replacements only for the topmost unchained vacancies after
+    // all available unchained tiles have cascaded down.
     [col, col + 1].forEach((column) => {
-      for (let destinationRow = 0; destinationRow <= row + 1; destinationRow += 1) {
-        const destinationIndex = destinationRow * size + column;
-        const sourceRow = destinationRow - 2;
-        if (sourceRow >= 0) {
-          const sourceIndex = sourceRow * size + column;
+      const affectedIndices = Array.from({ length: row + 2 }, (_, r) => r * size + column);
+      const anchoredIndices = affectedIndices.filter((index) => items[index]?.isAnchored);
+      anchoredIndices.forEach((index) => {
+        next[index] = items[index];
+        movementPlan.set(index, { sourceIndex: index, isNew: false, tile: items[index] });
+      });
+
+      const destinationIndices = affectedIndices.filter((index) => !items[index]?.isAnchored);
+      const sourceIndices = affectedIndices.filter((index) => !items[index]?.isAnchored && !targetSet.has(index));
+      let sourceCursor = sourceIndices.length - 1;
+      const newDestinationIndices = [];
+      for (let destinationCursor = destinationIndices.length - 1; destinationCursor >= 0; destinationCursor -= 1) {
+        const destinationIndex = destinationIndices[destinationCursor];
+        if (sourceCursor >= 0) {
+          const sourceIndex = sourceIndices[sourceCursor--];
           const tile = items[sourceIndex];
           next[destinationIndex] = tile;
           sourceByDestination.set(destinationIndex, sourceIndex);
           movementPlan.set(destinationIndex, { sourceIndex, isNew: false, tile });
           if (sourceIndex !== destinationIndex) movedTiles.add(tile);
         } else {
-          const tile = createTile();
-          next[destinationIndex] = tile;
-          movementPlan.set(destinationIndex, { sourceIndex: null, isNew: true, tile });
-          newTiles.add(tile);
+          newDestinationIndices.push(destinationIndex);
         }
       }
+      // Create fresh letters in top-to-bottom order for stable, predictable IDs.
+      newDestinationIndices.sort((a, b) => a - b).forEach((destinationIndex) => {
+        const tile = createTile();
+        next[destinationIndex] = tile;
+        movementPlan.set(destinationIndex, { sourceIndex: null, isNew: true, tile });
+        newTiles.add(tile);
+      });
     });
     return { tiles: next, movedTiles, newTiles, clearedIndices, sourceByDestination, movementPlan };
   }
@@ -92,7 +108,7 @@
     const transitions = new Map();
     landingIndices.forEach((index) => {
       const tile = tiles[index];
-      if (!tile) return;
+      if (!tile || tile.isWildLetter || tile.isAnchored) return;
       const incomingBonus = tile.bonus || 'NO';
       const explodedBonus = explodedBonuses.get(index) || 'NO';
       const winningBonus = (rank[incomingBonus] || 0) >= (rank[explodedBonus] || 0)

@@ -816,3 +816,88 @@ body.theme-style2 .tile.bonus-3ls .tile-value, body.theme-style2 .tile.bonus-3ws
 @keyframes bomb-blast-ring { 0% { opacity: 0; transform: scale(.3); } 22% { opacity: 1; transform: scale(.75); } 100% { opacity: 0; transform: scale(1.25); } }
 @keyframes bomb-blast-spark { 0% { opacity: 0; transform: translate(-50%,-50%) rotate(var(--spark-angle)) translateY(0) scale(.3); } 18% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%,-50%) rotate(var(--spark-angle)) translateY(calc(0px - var(--spark-distance))) scale(.15); } }
 @media (prefers-reduced-motion: reduce) { .bomb-aim-icon { animation: none; } .bomb-blast-effect, .bomb-blast-effect::before, .bomb-blast-effect::after, .bomb-blast-spark { animation-duration: .01ms; } }
+
+/* Extensible pre-round power selection. */
+.round-power-intro { margin: -5px 0 16px; color: #48616e; line-height: 1.45; }
+.round-power-options { display: grid; gap: 9px; margin: 16px 0 12px; }
+.round-power-option { display: flex; flex-direction: column; gap: 4px; width: 100%; padding: 13px 15px; border: 2px solid #c6d7df; border-radius: 12px; background: #fff; color: var(--ink); text-align: left; transition: border-color .12s ease, background .12s ease, transform .12s ease; }
+.round-power-option strong { font-size: 17px; }
+.round-power-option span { color: #607784; font-size: 13px; }
+.round-power-option.is-selected { border-color: #0878b8; background: #e5f7ff; box-shadow: inset 4px 0 0 #0878b8; }
+.round-power-option:active { transform: scale(.99); }
+.round-power-status { min-height: 20px; margin: 8px 0 14px; color: #48616e; font-size: 13px; }
+
+
+/* Wild Letter is intentionally vivid and unmistakable against every bonus tile. */
+.wild-letter-tile {
+  background: linear-gradient(140deg, #ff4fd8 0%, #b43dff 48%, #21d4fd 100%) !important;
+  color: #ffffff !important;
+  border: 2px solid #ffffff !important;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,.24), 0 0 0 2px rgba(183,61,255,.55), 0 0 18px rgba(255,79,216,.72), 0 0 30px rgba(33,212,253,.34) !important;
+}
+.wild-letter-tile .tile-letter { color: #ffffff !important; text-shadow: 0 2px 3px rgba(35,0,65,.75) !important; }
+.wild-letter-tile .tile-value { color: #ffffff !important; background: rgba(37,0,66,.7) !important; border-radius: 5px; padding: 1px 4px; text-shadow: none !important; }
+.wild-letter-action { order: 5; grid-column: 1 / -1; width: min(50%, 280px); justify-self: center; border-color: #ff4fd8 !important; background: linear-gradient(115deg, rgba(111,22,143,.96), rgba(10,74,111,.96)) !important; box-shadow: 0 0 0 1px rgba(255,79,216,.32), 0 0 18px rgba(255,79,216,.18) !important; }
+.rotate-action { order: 1; }
+.randomize-action { order: 2; }
+.bomb-action { order: 3; }
+.swap-action { order: 4; }
+.wild-letter-action .action-symbol, .wild-letter-action .action-count { color: #ff79e2 !important; border-color: rgba(255,79,216,.8) !important; font-weight: 1000; }
+.wild-letter-action.power-ready:not(:disabled) { box-shadow: 0 0 0 1px rgba(255,79,216,.75), 0 0 20px rgba(255,79,216,.4) !important; }
+.wild-letter-picker-overlay { z-index: 10050; }
+.wild-letter-picker { width: min(92vw, 420px); }
+.wild-letter-choices { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin: 16px 0; }
+.wild-letter-choice { min-width: 0; min-height: 40px; border: 1px solid rgba(130,160,195,.65); border-radius: 8px; background: rgba(15,42,72,.95); color: #fff; font-weight: 900; font-size: 16px; cursor: pointer; }
+.wild-letter-choice:focus-visible { outline: 2px solid #ffd65a; outline-offset: 2px; }
+body.theme-style2 .wild-letter-tile { background: linear-gradient(140deg, #ff4fd8 0%, #b43dff 48%, #21d4fd 100%) !important; border-color: #ffffff !important; }
+
+
+/* Wild Letter UI corrections — 2026-10-22. */
+.wild-letter-tile {
+  background: #ff9d78 !important; /* Classic default tile background */
+  color: #102b3a !important;
+  border: 2px solid rgba(255, 225, 145, .98) !important;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.42), inset 0 -5px 0 rgba(0,0,0,.11),
+    0 3px 0 rgba(0,43,63,.24), 0 0 0 2px rgba(255,225,145,.85),
+    0 0 13px 4px rgba(255,203,79,.78) !important;
+  text-shadow: 1px 1px 1px rgba(255,255,255,.65) !important;
+}
+.wild-letter-tile .tile-letter { color: inherit !important; text-shadow: inherit !important; }
+.wild-letter-tile .tile-value { color: #102b55 !important; background: transparent !important; padding: 0 !important; text-shadow: 0 1px 0 rgba(255,255,255,.55) !important; }
+.wild-letter-action { order: 5; grid-column: auto; width: auto; justify-self: stretch; background: rgba(7,49,76,.86) !important; border-color: rgba(255,220,91,.85) !important; box-shadow: 0 3px 0 rgba(0,0,0,.16) !important; }
+.wild-letter-action .action-symbol, .wild-letter-action .action-count { color: #ffe08a !important; border-color: rgba(255,220,91,.7) !important; }
+.wild-letter-action.power-ready:not(:disabled) { box-shadow: 0 0 0 1px rgba(255,220,91,.8), 0 0 12px rgba(255,210,64,.3) !important; }
+.board-actions { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; gap: clamp(3px, 1vw, 7px) !important; }
+.board-action { min-width: 0; padding: 6px 3px; }
+@media (max-width: 380px) { .board-actions { width: 96vw; gap: 3px !important; } .board-action .action-symbol { font-size: 20px; } .board-action .action-copy strong { font-size: clamp(7px, 2.15vw, 9px) !important; letter-spacing: 0; } .board-action .action-count { font-size: 8px; padding: 2px; } }
+
+/* Wild Letter feedback follow-up — Classic uses the actual Classic tile fill;
+   the super power occupies the center column of the five-button action row. */
+body:not(.theme-style2) .wild-letter-tile {
+  background: #ff9d78 !important;
+  color: #102b3a !important;
+  border: 2px solid rgba(255, 220, 91, .98) !important;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.42), inset 0 -5px 0 rgba(0,0,0,.11),
+    0 3px 0 rgba(0,43,63,.24), 0 0 0 2px rgba(255,220,91,.88),
+    0 0 13px 4px rgba(255,220,91,.68) !important;
+}
+.wild-letter-action { order: 3 !important; grid-column: auto !important; width: auto !important; justify-self: stretch !important; }
+.rotate-action { order: 1 !important; }
+.randomize-action { order: 2 !important; }
+.bomb-action { order: 4 !important; }
+.swap-action { order: 5 !important; }
+
+
+/* Phase 3 — Chain Round Power. Protected tiles stay legible and visibly linked. */
+.tile.anchor-word-tile {
+  border: 2px solid rgba(255, 220, 91, .98) !important;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,.18), 0 0 0 2px rgba(255,220,91,.9), 0 0 12px 3px rgba(255,205,60,.65) !important;
+  position: relative; z-index: 2;
+}
+.anchor-word-action { border-color: #ffe08a !important; box-shadow: 0 0 0 1px rgba(255,220,91,.85), 0 0 16px rgba(255,210,64,.38) !important; }
+.anchor-word-action .action-symbol, .anchor-word-action .action-count { color: #ffe08a !important; border-color: rgba(255,220,91,.85) !important; }
+
+/* Round Power cards explain each power and show its charge count. */
+.round-power-option .round-power-description { line-height: 1.35; }
+.round-power-option .round-power-charges { font-weight: 800; margin-top: 2px; }
+#round-power-action-symbol svg { display: block; width: 1.05em; height: 1.05em; }

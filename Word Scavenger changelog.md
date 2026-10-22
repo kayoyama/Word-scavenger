@@ -1,3 +1,114 @@
+## v0.2.2 — 2026-10-22 — Chain usability and Bomb gravity refinement
+
+### Changed
+- Replaced the center Chain power's letter-A marker with a chain-link SVG icon.
+- Expanded the pre-round Round Power selector with concise descriptions and charge counts for Wild Letter and Chain.
+- Set a five-tile maximum for Chain. Its description now explains protecting a connected tile sequence while waiting for suffixes or other letters (for example, S, ER, or ING) to extend a word.
+
+### Fixed
+- Enforced the five-tile Chain limit during selection; selecting more than five connected tiles is rejected without consuming a charge.
+- Corrected Bomb gravity around Chain tiles: chained tiles stay fixed, while unchained tiles in affected columns cascade down through available unchained positions. New letters are generated only for topmost unchained vacancies left after existing unchained tiles have moved.
+
+### Verification
+- JavaScript syntax checks passed.
+- Game-logic tests cover tile identity, fixed Chain tiles, cascading unchained tiles past fixed Chain positions, and top-vacancy refill behavior.
+- Chain UI source tests cover the link icon, power descriptions, charge counts, and five-tile cap.
+- Automated/source-level checks only; visual browser and Android testing were not performed.
+
+---
+
+## v0.2.1 — 2026-10-22 — Chain naming and Bomb protection correction
+
+### Changed
+- Renamed the user-facing **Anchor Word** Round Power to **Chain** in the pre-round selector, center power button, instructions, status messages, and project README. The internal option ID remains stable to avoid unnecessary persistence/logic changes.
+- Chain accepts any connected selection of at least two tiles; it no longer checks the dictionary or requires the selected letters to spell a valid word. Setup does not score or consume the selected tiles.
+
+### Fixed
+- Corrected Bomb protection to apply to individual chained tiles only. Unprotected tiles in the normal 2×2 blast still explode even when a chained tile is beside, above, below, or inside the blast.
+- Updated the Bomb cascade to keep chained tiles fixed in place while unprotected tiles in the affected two columns fall/refill normally within the spaces between protected tiles. Unaffected board columns and rows below the cascade remain unchanged.
+- Excluded protected chain tiles from explosion animation and bonus promotion; their tile data and bonus metadata remain untouched.
+
+### Verification
+- JavaScript syntax checks passed.
+- Game-logic tests passed, including tests for unprotected blast tiles around chained tiles, fixed protected positions, refills, and protected bonus metadata.
+- Scoring, Wild Letter UI, and Chain source regression tests passed.
+- ZIP integrity verified after packaging. Automated/source-level checks only; visual browser and Android testing were not performed.
+
+---
+
+## v0.2.0 — 2026-10-22 — Phase 3: Anchor Word Round Power
+
+### Added
+- Implemented **Anchor Word** as the second mutually exclusive Round Power, with one charge per round and no refill.
+- The player activates Anchor Word, then drags across a connected valid word. The selected tiles become an anchored chain without scoring or consuming those tiles during setup.
+- Anchored tiles receive a clear gold outline/glow and keep their tile data and relative arrangement through Rotate.
+- Anchored tiles cannot be changed by Randomize or moved by Swap. Bomb activation is blocked when its target/cascade would destroy or displace any anchored tile.
+- Anchored tiles used in a later valid word are consumed and replaced normally, which removes their anchor status; remaining anchored tiles stay protected.
+- Reused the center Round Power action button for the currently selected power: it displays Wild Letter or Anchor Word, its corresponding symbol, charge count, and context-sensitive instructions.
+- Removed the **None** Round Power option for now. Wild Letter is the default selection; choosing Wild Letter or Anchor Word remains mutually exclusive for the round.
+- Added the same power-target hover animation to tile targeting after activating Wild Letter, and added targeted source checks for Anchor Word.
+
+### Changed
+- The center power button now reflects the selected Round Power while keeping all five power buttons in one row: Rotate, Randomize, selected Round Power, Bomb, Swap.
+- Anchor Word requires a valid connected word path and spends its charge only when the anchored chain is successfully created. Cancelling the mode or submitting an invalid path does not spend the charge.
+
+### Fixed
+- Prevented bomb cascades from shifting anchored tiles by rejecting bomb targets whose affected two columns include an anchored tile in the target area or above it.
+- Prevented long-word bonus assignment from choosing anchored tiles as transformation candidates.
+
+### Verification
+- JavaScript syntax check passed.
+- Existing game-logic, scoring, round persistence, and Wild Letter UI regression tests passed.
+- Added and passed Anchor Word source checks for selection option removal, one-charge setup, tile anchoring, Randomize/Swap/Bomb protection, and theme styles.
+- Automated/source-level checks only; visual browser testing and Android device testing were not performed.
+
+---
+
+## v0.1.2 — 2026-10-22 — Wild Letter theme and power-row follow-up
+
+### Fixed
+- Corrected the Classic-theme Wild Letter background to use the normal light-brown tile fill (`#ff9d78`) instead of white. Style 2 remains white.
+- Kept a clear outer glow while using theme-appropriate outline colors: warm gold in Classic and gold in Style 2.
+- Reordered the five power buttons so Wild Letter is centered as the super power: Rotate, Randomize, Wild Letter, Bomb, Swap. All five remain in the same responsive row.
+
+### Verification
+- Updated the Wild Letter UI source checks for the theme-specific default fills and centered button order.
+- Automated syntax and regression checks were run for this package. Browser visual testing and Android device testing were not performed.
+
+---
+
+## v0.1.1 — 2026-10-22 — Wild Letter UI fixes
+
+### Fixed
+- Corrected the live tile-update renderer so Wild Letters display a subscript value of exactly `1`, matching initial board rendering.
+- Isolated Wild Letter scoring from inherited letter and word bonus metadata: each Wild Letter contributes exactly one base point, while the other tiles' applicable word-level multipliers and word-level scoring rules remain in effect.
+- Restored the default tile background for Wild Letters: light brown in Classic and white in Style 2. Added a distinct outer glow/outline without using the previous magenta-violet-cyan tile gradient.
+- Placed Rotate, Randomize, Bomb, Swap, and Wild Letter in a five-column single-row layout, with compact responsive sizing for narrow mobile viewports.
+
+### Verification
+- Added a scoring regression test for a Wild Letter carrying simulated inherited bonus metadata.
+- Added source-level checks for both Wild Letter render paths, score isolation, both theme overrides, and the five-button layout.
+- JavaScript syntax checks and the existing regression suites were run for this release candidate. Browser visual testing and Android device testing were not performed.
+
+---
+
+## 2026-10-22 — Wild Letter selection flow, rotation animation, and visual emphasis
+
+### Changed
+- Repositioned the Wild Letter Round Power button as a centered fifth action beneath the four standard board actions, balancing the control layout in both themes.
+- Changed Wild Letter activation order: activate the power, select the tile to transform, then choose its letter. Cancelling the letter picker returns to tile selection without spending a charge.
+- Updated Wild Letter styling to a high-contrast magenta, violet, and cyan gradient with a bright outline and glow so it stands out from normal and bonus tiles.
+
+### Fixed
+- Cleared any lingering tile-flip animation classes before Rotate starts, so Wild Letter tiles use the same board-rotation animation as other tiles instead of appearing to flip.
+- Cleared the selected tile highlight and target state when cancelling Wild Letter mode.
+
+### Verification
+- JavaScript syntax checks and the existing game-logic/scoring regression tests were run for this change.
+- Browser and Android visual verification remains pending.
+
+---
+
 ## 2026-10-22 — Bomb release targeting validation
 
 ### Fixed
@@ -502,3 +613,38 @@ The history available for this update includes the changelog source, a Classic M
 - `node --check js/game-logic.js` — passed.
 - `node --test tests/game-logic.test.js tests/scoring-rules.test.js` — passed, including clockwise source-index mapping and source guards for the Rotate handoff and Bomb sparks.
 - Browser visual verification remains outstanding. Automated tests do not prove that the Rotate blink is gone or that the explosion looks correct in Live Server.
+
+## 2026-10-22 — Round Power pre-round selection (Phase 1)
+
+### Added
+- Added a pre-round **Round Power** selection dialog with **None**, **Wild Letter**, and **Anchor Word** options, leaving room for additional powers in the future.
+- Added a selected-state treatment and accessible radio-style semantics for the options.
+- Stored the selected option in round-selection state and attached it to the active game screen as round configuration for later power implementations. Routed New Game / Play Again through the selection step. The first-time tutorial now leads to power selection before gameplay.
+
+### Changed
+- The selected power is a configuration choice only in this phase. Wild Letter and Anchor Word gameplay effects, charges, and tile interactions are not implemented yet.
+- Cancel returns to the main menu without starting a round. Existing gameplay is otherwise unchanged.
+
+### Verification
+- `node --check js/game.js` and `node --check js/game-logic.js` — passed.
+- `node --test tests/game-logic.test.js tests/scoring-rules.test.js` — passed after updating the Play Again source guard to expect the new pre-round selection flow.
+- Browser/device visual verification of selection, cancellation, tutorial flow, and Play Again remains outstanding.
+
+
+## [Unreleased] - 2026-10-22
+
+### Added
+- Implemented the Wild Letter Round Power: three non-refillable charges per round, letter choice on activation, then player-selected tile transformation.
+- Wild Letter tiles persist with unique IDs, display the chosen letter at a fixed value of 1, have a neutral distinct appearance, and can coexist on the board.
+- Wild Letter tiles move with Rotate, are excluded from Randomize and Swap, and can be destroyed by Bomb.
+- Added an A–Z selection dialog with cancellation before placement; choosing a letter alone does not spend a charge.
+
+### Changed
+- Word scoring now treats Wild Letter tiles as exactly 1 letter point and prevents ordinary letter-bonus multipliers from applying to them. Existing word-level scoring remains in effect.
+- Bomb landing-bonus resolution preserves Wild Letter identity and its no-bonus status when a Wild Letter falls into an affected landing cell.
+
+### Fixed
+- Prevented Randomize and Swap from altering or moving Wild Letter tiles.
+
+### Performance / Refactoring
+- Reused the existing board rendering, tile-flip feedback, and round-power selection architecture for Wild Letter instead of introducing a separate board system.

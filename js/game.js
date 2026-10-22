@@ -10,12 +10,14 @@
   const CHRONO_COMBO_WINDOW_MS = 7000;
   const CHRONO_COMBO_MAX_SECONDS = 20;
   const SIZE = 5;
+  const MAX_CHAIN_TILES = 5;
   const RANDOMIZE_CHARGE_CAP = 5;
   const RANDOMIZE_WORDS_PER_CHARGE = 5;
   const BOMB_CHARGE_CAP = 3;
   const BOMB_WORDS_PER_CHARGE = 10;
   const SWAP_CHARGE_CAP = 3;
   const SWAP_WORDS_PER_CHARGE = 15;
+  const WILD_LETTER_CHARGES_PER_ROUND = 3;
   const STORAGE_KEY = 'wordScavengerBrowserStats';
   const BONUS_CLASSES = {
     NO: '', '2LS': 'bonus-2ls', '3LS': 'bonus-3ls',
@@ -43,6 +45,15 @@
   const wordlistSet = new Set(Array.isArray(window.wordlist) ? window.wordlist : []);
 
   let tiles = [];
+  // Round Power is selected before each round. Wild Letter tiles carry stable IDs.
+  let selectedRoundPower = 'wild-letter';
+  let wildLetterCharges = 0;
+  let wildLetterMode = false;
+  let wildLetterLetter = null;
+  let wildLetterTargetIndex = null;
+  let anchorWordMode = false;
+  let anchorWordCharges = 0;
+  let nextWildLetterId = 1;
   let selectedIndices = [];
   let isSelecting = false;
   let roundActive = false;
@@ -174,7 +185,7 @@
     statsScreen.hidden = screen !== 'stats';
     el('settings-screen').hidden = screen !== 'settings';
     gameScreen.hidden = screen !== 'game';
-    if (screen !== 'front') el('tutorial-overlay').hidden = true;
+    if (screen !== 'front') { el('tutorial-overlay').hidden = true; el('round-power-overlay').hidden = true; }
   }
 
   function randomInt(max) { return Math.floor(Math.random() * max) + 1; }
@@ -208,17 +219,19 @@
   function createTile(index, letter, bonus) {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = `tile ${BONUS_CLASSES[bonus] || ''}`.trim();
+    const tileData = tiles[index];
+    button.className = `tile ${tileData?.isWildLetter ? 'wild-letter-tile' : (BONUS_CLASSES[bonus] || '')} ${tileData?.isAnchored ? 'anchor-word-tile' : ''}`.trim();
     button.dataset.index = String(index);
     button.dataset.letter = letter;
     button.dataset.bonus = bonus;
-    const letterValue = LETTER_POINTS[letter.charCodeAt(0) - 64] || 0;
+    const letterValue = tileData?.isWildLetter ? 1 : (LETTER_POINTS[letter.charCodeAt(0) - 64] || 0);
     const bonusLabel = ({ '2LS': '2L', '3LS': '3L', '2WS': '2W', '3WS': '3W' })[bonus] || '';
     const face = document.createElement('span'); face.className = 'tile-letter'; face.textContent = letter;
     const value = document.createElement('sub'); value.className = 'tile-value'; value.textContent = String(letterValue);
     button.append(face, value);
-    if (bonusLabel) { const mark = document.createElement('sup'); mark.className = 'tile-bonus-mark'; mark.textContent = bonusLabel; button.appendChild(mark); }
-    button.setAttribute('aria-label', `Row ${Math.floor(index / SIZE) + 1}, column ${(index % SIZE) + 1}, letter ${letter}, ${letterValue} points${bonus === 'NO' ? '' : `, ${bonus}`}`);
+    if (bonusLabel && !tileData?.isWildLetter) { const mark = document.createElement('sup'); mark.className = 'tile-bonus-mark'; mark.textContent = bonusLabel; button.appendChild(mark); }
+    if (tileData?.isWildLetter) button.dataset.wildLetterId = tileData.id;
+    button.setAttribute('aria-label', `Row ${Math.floor(index / SIZE) + 1}, column ${(index % SIZE) + 1}, ${tileData?.isWildLetter ? 'Wild Letter ' : ''}${tileData?.isAnchored ? 'anchored ' : ''}letter ${letter}, ${letterValue} points${tileData?.isWildLetter ? ', wildcard tile' : (bonus === 'NO' ? '' : `, ${bonus}`)}${tileData?.isAnchored ? ', protected anchored tile' : ''}`);
     return button;
   }
 
@@ -228,11 +241,32 @@
   }
 
   function renderActionCharges() {
+    const wildButton = el('wild-letter-action');
     const rotateButton = el('rotate-action');
     const randomizeButton = el('randomize-action');
     const bombButton = el('bomb-action');
     const swapButton = el('swap-action');
-    if (!rotateButton || !randomizeButton || !bombButton || !swapButton) return;
+    if (!wildButton || !rotateButton || !randomizeButton || !bombButton || !swapButton) return;
+    const anchorSelected = selectedRoundPower === 'anchor-word';
+    const actionSymbol = el('round-power-action-symbol');
+    if (anchorSelected) {
+      actionSymbol.innerHTML = '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M10 13.5a5 5 0 0 0 7.1 0l2.4-2.4a5 5 0 0 0-7.1-7.1l-1.4 1.4"/><path d="M14 10.5a5 5 0 0 0-7.1 0l-2.4 2.4a5 5 0 0 0 7.1 7.1l1.4-1.4"/></svg>';
+    } else {
+      actionSymbol.textContent = 'W';
+    }
+    el('round-power-action-label').textContent = anchorSelected ? 'CHAIN' : 'WILD LETTER';
+    el('wild-letter-count').textContent = anchorSelected ? `${anchorWordCharges} / 1` : `${wildLetterCharges} / ${WILD_LETTER_CHARGES_PER_ROUND}`;
+    el('wild-letter-hint').textContent = anchorSelected
+      ? (anchorWordMode ? `Select 2–${MAX_CHAIN_TILES} connected tiles` : (anchorWordCharges > 0 ? `Protect up to ${MAX_CHAIN_TILES} tiles while waiting to extend a word` : 'Chain already created this round'))
+      : (wildLetterMode ? 'Choose a tile, then choose its letter' : (wildLetterCharges > 0 ? 'Choose a tile, then its letter' : 'Wild Letter already used up'));
+    const boardLocked = isPowerActionLocked();
+    const powerModeActive = anchorSelected ? anchorWordMode : wildLetterMode;
+    const powerCharges = anchorSelected ? anchorWordCharges : wildLetterCharges;
+    wildButton.disabled = !roundActive || powerCharges <= 0 && !powerModeActive || boardLocked;
+    wildButton.classList.toggle('power-ready', !wildButton.disabled && powerCharges > 0);
+    wildButton.classList.toggle('power-locked', wildButton.disabled);
+    wildButton.classList.toggle('action-armed', powerModeActive);
+    wildButton.classList.toggle('anchor-word-action', anchorSelected);
     el('rotate-count').textContent = '∞';
     el('randomize-count').textContent = `${randomizeCharges} / ${RANDOMIZE_CHARGE_CAP}`;
     el('bomb-count').textContent = `${bombCharges} / ${BOMB_CHARGE_CAP}`;
@@ -242,7 +276,6 @@
       : `Next charge: ${RANDOMIZE_WORDS_PER_CHARGE - randomizeWordProgress} correct word${RANDOMIZE_WORDS_PER_CHARGE - randomizeWordProgress === 1 ? '' : 's'}`;
     el('bomb-hint').textContent = bombMode ? 'Click the intersection of four tiles' : 'Every 10 words under 6 letters, or any 6+ letter word';
     el('swap-hint').textContent = swapMode ? (swapFirstIndex === null ? 'Select the first tile' : 'Select the second tile') : 'Every 15 words under 6 letters, or any 7+ letter word';
-    const boardLocked = isPowerActionLocked();
     rotateButton.disabled = !roundActive || boardLocked;
     randomizeButton.disabled = !roundActive || boardLocked || (randomizeCharges <= 0 && !randomizeMode);
     bombButton.disabled = !roundActive || boardLocked || (bombCharges <= 0 && !bombMode);
@@ -281,6 +314,10 @@
 
   function cancelPowerModes() {
     randomizeMode = false;
+    wildLetterMode = false;
+    anchorWordMode = false;
+    wildLetterLetter = null;
+    wildLetterTargetIndex = null;
     bombMode = false;
     bombGestureTarget = null;
     bombGesturePointerId = null;
@@ -587,15 +624,18 @@
 
   function useBombAt(row, col) {
     if (!bombMode || bombCharges <= 0 || !roundActive || isPowerActionLocked() || !Number.isInteger(row) || !Number.isInteger(col) || row < 0 || col < 0 || row >= SIZE - 1 || col >= SIZE - 1) return false;
+    // Chain protects individual tiles only. Unprotected target tiles still explode,
+    // and the cascade compacts/refills around fixed anchored tiles.
     cancelPowerModes();
     bombCharges -= 1;
     setActionsBusy(true);
     showBombExplosion(row, col, 260);
-    const rowIndices = [row * SIZE + col, row * SIZE + col + 1, (row + 1) * SIZE + col, (row + 1) * SIZE + col + 1];
+    const targetIndices = [row * SIZE + col, row * SIZE + col + 1, (row + 1) * SIZE + col, (row + 1) * SIZE + col + 1];
     const oldRectsByIndex = captureTileRectsByIndex();
+    const rowIndices = targetIndices.filter((index) => !tiles[index]?.isAnchored);
     const bombedElements = rowIndices.map((index) => board.querySelector(`[data-index="${index}"]`)).filter(Boolean);
-    // Each of the four exploded positions keeps its own winning bonus/color.
-    // Do not promote one bonus across both columns: each landing cell is resolved independently.
+    // Protected chain tiles do not explode or lend their bonus to a replacement.
+    // Each unprotected exploded position resolves its own winning bonus/color.
     const landingBonuses = new Map(rowIndices.map((index) => [index, tiles[index]?.bonus || 'NO']));
     bombedElements.forEach((tile, position) => {
       tile.classList.add('bomb-exploding');
@@ -614,7 +654,7 @@
       // against that exact destination's exploded bonus; never recolor whole columns.
       // Resolve each landing bonus independently in shared logic. This mutates only
       // the bonus field, preserving tile identity, random letters, and the movement plan.
-      const bonusTransitionByIndex = gameLogic.resolveBombLandingBonuses(tiles, rowIndices, landingBonuses);
+      const bonusTransitionByIndex = gameLogic.resolveBombLandingBonuses(tiles, bombResult.clearedIndices, landingBonuses);
       renderBoard();
       animateBombMovementPlan(oldRectsByIndex, bombResult.movementPlan, 300, token, bonusTransitionByIndex);
       renderActionCharges();
@@ -628,7 +668,7 @@
   }
 
   function useSwap(firstIndex, secondIndex) {
-    if (!swapMode || swapCharges <= 0 || firstIndex === secondIndex || !roundActive || isPowerActionLocked() || !Number.isInteger(firstIndex) || !Number.isInteger(secondIndex) || firstIndex < 0 || secondIndex < 0 || firstIndex >= tiles.length || secondIndex >= tiles.length) return false;
+    if (!swapMode || swapCharges <= 0 || firstIndex === secondIndex || !roundActive || isPowerActionLocked() || !Number.isInteger(firstIndex) || !Number.isInteger(secondIndex) || firstIndex < 0 || secondIndex < 0 || firstIndex >= tiles.length || secondIndex >= tiles.length || tiles[firstIndex]?.isWildLetter || tiles[secondIndex]?.isWildLetter || tiles[firstIndex]?.isAnchored || tiles[secondIndex]?.isAnchored) return false;
     const oldPositions = captureTilePositions();
     tiles = gameLogic.swapTiles(tiles, firstIndex, secondIndex);
     // Keep references to the two tile objects that changed positions. Using
@@ -711,9 +751,13 @@
     void board.offsetWidth;
     board.classList.add('board-rotate-spin');
 
-    // Counter-rotate tile faces while the board moves. Do not mutate the letters
-    // mid-animation: that made the outer tiles appear to change letters in place.
-    board.querySelectorAll('.tile').forEach((tile) => tile.classList.add('action-rotate-counter'));
+    // Remove any leftover flip classes first so a newly-created Wild Letter does not
+    // appear to flip during Rotate. All tiles, including Wild Letters, then use the
+    // same clockwise board / counter-rotating face animation.
+    board.querySelectorAll('.tile').forEach((tile) => {
+      tile.classList.remove('tile-flip', 'action-tile-flip');
+      tile.classList.add('action-rotate-counter');
+    });
 
     // At the end, move the existing DOM tile nodes into their rotated grid order.
     // Updating each cell's content instead causes a one-frame bonus-color flash when
@@ -729,7 +773,7 @@
         const tileElement = elementsBySourceIndex.get(sourceIndex);
         if (!tileElement) return;
         tileElement.dataset.index = String(destinationIndex);
-        const letterValue = LETTER_POINTS[tileData.letter.charCodeAt(0) - 64] || 0;
+        const letterValue = tileData.isWildLetter ? 1 : (LETTER_POINTS[tileData.letter.charCodeAt(0) - 64] || 0);
         tileElement.setAttribute('aria-label', `Row ${Math.floor(destinationIndex / SIZE) + 1}, column ${(destinationIndex % SIZE) + 1}, letter ${tileData.letter}, ${letterValue} points${tileData.bonus === 'NO' ? '' : `, ${tileData.bonus}`}`);
         board.appendChild(tileElement);
       });
@@ -741,6 +785,72 @@
       resumeChronoComboTimer(chronoWasRunning);
     }, animationDuration + 60, token);
     renderActionCharges();
+  }
+
+
+  function activateWildLetter() {
+    if (!roundActive || selectedRoundPower !== 'wild-letter' || wildLetterCharges <= 0 || isPowerActionLocked()) return;
+    cancelPowerModes();
+    wildLetterMode = true;
+    wildLetterTargetIndex = null;
+    selectedIndices = [];
+    isSelecting = false;
+    clearSelectionStyles();
+    el('word-feedback').textContent = 'Wild Letter: tap the tile to transform';
+    renderActionCharges();
+  }
+
+  function openWildLetterPicker(index) {
+    if (!wildLetterMode || !roundActive || wildLetterCharges <= 0 || isPowerActionLocked() || !Number.isInteger(index) || index < 0 || index >= tiles.length) return;
+    wildLetterTargetIndex = index;
+    board.querySelectorAll('.power-target-selected').forEach((tile) => tile.classList.remove('power-target-selected'));
+    board.querySelector(`[data-index="${index}"]`)?.classList.add('power-target-selected');
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay wild-letter-picker-overlay';
+    overlay.innerHTML = '<section class="tutorial-card wild-letter-picker" role="dialog" aria-modal="true" aria-labelledby="wild-letter-picker-title"><p class="eyebrow">WILD LETTER</p><h2 id="wild-letter-picker-title">Choose a letter</h2><p>The selected tile will become this letter and be worth 1 point. This uses one charge.</p><div class="wild-letter-choices" role="group" aria-label="Choose wildcard letter"></div><div class="tutorial-actions"><button type="button" class="menu-button" data-wild-cancel>Cancel</button></div></section>';
+    const choices = overlay.querySelector('.wild-letter-choices');
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach((letter) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'wild-letter-choice';
+      button.textContent = letter;
+      button.addEventListener('click', () => {
+        wildLetterLetter = letter;
+        overlay.remove();
+        transformTileIntoWildLetter(wildLetterTargetIndex);
+      });
+      choices.appendChild(button);
+    });
+    overlay.querySelector('[data-wild-cancel]').addEventListener('click', () => {
+      overlay.remove();
+      wildLetterTargetIndex = null;
+      board.querySelectorAll('.power-target-selected').forEach((tile) => tile.classList.remove('power-target-selected'));
+      el('word-feedback').textContent = 'Wild Letter: tap a tile to choose its letter, or tap Wild Letter to cancel';
+      renderActionCharges();
+    });
+    document.body.appendChild(overlay);
+  }
+
+  function transformTileIntoWildLetter(index) {
+    if (!wildLetterMode || !roundActive || wildLetterCharges <= 0 || isPowerActionLocked() || !Number.isInteger(index) || index < 0 || index >= tiles.length || !wildLetterLetter) return false;
+    tiles[index] = { id: `wild-${nextWildLetterId++}`, letter: wildLetterLetter, bonus: 'NO', isWildLetter: true };
+    wildLetterCharges -= 1;
+    wildLetterMode = false;
+    const chosenLetter = wildLetterLetter;
+    wildLetterLetter = null;
+    wildLetterTargetIndex = null;
+    board.querySelectorAll('.power-target-selected').forEach((tile) => tile.classList.remove('power-target-selected'));
+    updateTileElement(index);
+    const tileElement = board.querySelector(`[data-index="${index}"]`);
+    if (tileElement) {
+      tileElement.classList.remove('tile-flip', 'action-tile-flip');
+      void tileElement.offsetWidth;
+      tileElement.classList.add('tile-flip', 'action-tile-flip');
+      window.setTimeout(() => tileElement.classList.remove('tile-flip', 'action-tile-flip'), 180);
+    }
+    el('word-feedback').textContent = `Wild Letter created · ${chosenLetter} · 1 point`;
+    renderActionCharges();
+    return true;
   }
 
   function armRandomize() {
@@ -756,7 +866,7 @@
   }
 
   function randomizeTileLetter(index) {
-    if (!randomizeMode || !roundActive || isPowerActionLocked() || randomizeCharges <= 0 || !Number.isInteger(index) || index < 0 || index >= tiles.length) return false;
+    if (!randomizeMode || !roundActive || isPowerActionLocked() || randomizeCharges <= 0 || !Number.isInteger(index) || index < 0 || index >= tiles.length || tiles[index]?.isWildLetter || tiles[index]?.isAnchored) return false;
     randomizeMode = false;
     randomizeCharges -= 1;
     randomizeWordProgress = 0;
@@ -814,18 +924,21 @@
     if (!tileElement) return;
 
     Object.values(BONUS_CLASSES).filter(Boolean).forEach((className) => tileElement.classList.remove(className));
-    const bonusClass = BONUS_CLASSES[tileData.bonus];
+    tileElement.classList.toggle('wild-letter-tile', Boolean(tileData.isWildLetter));
+    tileElement.classList.toggle('anchor-word-tile', Boolean(tileData.isAnchored));
+    const bonusClass = tileData.isWildLetter ? '' : BONUS_CLASSES[tileData.bonus];
     if (bonusClass) tileElement.classList.add(bonusClass);
     tileElement.dataset.letter = tileData.letter;
     tileElement.dataset.bonus = tileData.bonus;
     tileElement.replaceChildren();
-    const letterValue = LETTER_POINTS[tileData.letter.charCodeAt(0) - 64] || 0;
+    const letterValue = tileData.isWildLetter ? 1 : (LETTER_POINTS[tileData.letter.charCodeAt(0) - 64] || 0);
     const face = document.createElement('span'); face.className = 'tile-letter'; face.textContent = tileData.letter;
     const value = document.createElement('sub'); value.className = 'tile-value'; value.textContent = String(letterValue);
     tileElement.append(face, value);
     const bonusLabel = ({ '2LS': '2L', '3LS': '3L', '2WS': '2W', '3WS': '3W' })[tileData.bonus];
-    if (bonusLabel) { const mark = document.createElement('sup'); mark.className = 'tile-bonus-mark'; mark.textContent = bonusLabel; tileElement.appendChild(mark); }
-    tileElement.setAttribute('aria-label', `Row ${Math.floor(index / SIZE) + 1}, column ${(index % SIZE) + 1}, letter ${tileData.letter}, ${letterValue} points${tileData.bonus === 'NO' ? '' : `, ${tileData.bonus}`}`);
+    if (bonusLabel && !tileData.isWildLetter) { const mark = document.createElement('sup'); mark.className = 'tile-bonus-mark'; mark.textContent = bonusLabel; tileElement.appendChild(mark); }
+    if (tileData.isWildLetter) tileElement.dataset.wildLetterId = tileData.id; else delete tileElement.dataset.wildLetterId;
+    tileElement.setAttribute('aria-label', `Row ${Math.floor(index / SIZE) + 1}, column ${(index % SIZE) + 1}, ${tileData.isWildLetter ? 'Wild Letter ' : ''}letter ${tileData.letter}, ${letterValue} points${tileData.isWildLetter ? ', wildcard tile' : (tileData.bonus === 'NO' ? '' : `, ${tileData.bonus}`)}`);
   }
 
   function scheduleRefillTimer(callback, delay, token) {
@@ -916,7 +1029,7 @@
     const used = new Set(usedIndices);
     const availableOrdinary = () => tiles
       .map((tile, index) => ({ tile, index }))
-      .filter(({ tile, index }) => tile.bonus === 'NO' && !used.has(index) && !lockedTileIndices.has(index));
+      .filter(({ tile, index }) => tile.bonus === 'NO' && !tile.isWildLetter && !tile.isAnchored && !used.has(index) && !lockedTileIndices.has(index));
     const availableRefills = usedIndices.filter((index) => !Object.prototype.hasOwnProperty.call(refillBonusOverrides, index));
     let remaining = rewardCount;
 
@@ -963,7 +1076,7 @@
   }
 
   function transformTileIntoBonus(index, bonusType) {
-    if (!tiles[index] || tiles[index].bonus !== 'NO' || lockedTileIndices.has(index)) return false;
+    if (!tiles[index] || tiles[index].isWildLetter || tiles[index].bonus !== 'NO' || lockedTileIndices.has(index)) return false;
     const tileElement = board.querySelector(`[data-index="${index}"]`);
     if (!tileElement) return false;
     lockedTileIndices.add(index);
@@ -990,6 +1103,8 @@
   }
 
   function startGame() {
+    // Persist the chosen configuration on the active round for later power implementations.
+    gameScreen.dataset.roundPower = selectedRoundPower;
     hideChronoCombo();
     cancelPowerModes();
     stopTimers();
@@ -1000,13 +1115,19 @@
     selectedIndices = [];
     isSelecting = false;
     actionBusy = false;
-    randomizeCharges = 5;
+    randomizeCharges = 0;
     randomizeWordProgress = 0;
+    wildLetterCharges = selectedRoundPower === 'wild-letter' ? WILD_LETTER_CHARGES_PER_ROUND : 0;
+    anchorWordCharges = selectedRoundPower === 'anchor-word' ? 1 : 0;
+    anchorWordMode = false;
+    wildLetterMode = false;
+    wildLetterLetter = null;
+    nextWildLetterId = 1;
     randomizeMode = false;
-    bombCharges = 3;
+    bombCharges = 0;
     bombWordProgress = 0;
     bombMode = false;
-    swapCharges = 3;
+    swapCharges = 0;
     swapWordProgress = 0;
     swapMode = false;
     swapFirstIndex = null;
@@ -1452,6 +1573,10 @@
       }
       return;
     }
+    if (anchorWordMode && selectedIndices.length >= MAX_CHAIN_TILES) {
+      el('word-feedback').textContent = `Chain limit: ${MAX_CHAIN_TILES} tiles maximum`;
+      return;
+    }
     selectedIndices.push(index);
     renderSelection();
   }
@@ -1463,6 +1588,24 @@
       return;
     }
     const word = getWord();
+    if (anchorWordMode) {
+      if (selectedIndices.length < 2) {
+        selectedIndices = []; clearSelectionStyles();
+        el('word-feedback').textContent = 'Chain needs at least two connected tiles';
+        return;
+      }
+      const anchoredIndices = [...selectedIndices];
+      anchoredIndices.forEach((index) => { tiles[index].isAnchored = true; });
+      anchorWordCharges = 0;
+      anchorWordMode = false;
+      selectedIndices = [];
+      clearSelectionStyles();
+      renderBoard();
+      renderActionCharges();
+      el('current-word').textContent = word;
+      el('word-feedback').textContent = `Chain created · ${anchoredIndices.length} tiles protected while you wait to extend a word`;
+      return;
+    }
     if (!wordlistSet.has(word)) {
       selectedIndices = [];
       clearSelectionStyles();
@@ -1655,20 +1798,50 @@
     });
   }
 
+  function showRoundPowerSelection() {
+    el('tutorial-overlay').hidden = true;
+    el('round-power-overlay').hidden = false;
+    updateRoundPowerSelection();
+  }
+
+  function updateRoundPowerSelection() {
+    const labels = { 'wild-letter': 'Wild Letter · Transform a tile into any letter worth 1 point · 3 charges.', 'anchor-word': `Chain · Protect 2–${MAX_CHAIN_TILES} connected tiles while waiting for letters like S, ER, or ING · 1 charge.` };
+    document.querySelectorAll('[data-round-power]').forEach((button) => {
+      const isSelected = button.dataset.roundPower === selectedRoundPower;
+      button.classList.toggle('is-selected', isSelected);
+      button.setAttribute('aria-checked', String(isSelected));
+    });
+    el('round-power-status').textContent = labels[selectedRoundPower] || labels['wild-letter'];
+  }
+
   function requestNewGame() {
     if (!stats.tutorialSeen) {
       el('tutorial-overlay').hidden = false;
       return;
     }
-    startGame();
+    showRoundPowerSelection();
   }
 
   function dismissTutorialAndStart() {
     stats.tutorialSeen = true;
     saveStats();
-    el('tutorial-overlay').hidden = true;
-    startGame();
+    showRoundPowerSelection();
   }
+
+  document.querySelectorAll('[data-round-power]').forEach((button) => {
+    button.addEventListener('click', () => {
+      selectedRoundPower = button.dataset.roundPower;
+      updateRoundPowerSelection();
+    });
+  });
+  el('round-power-start-button').addEventListener('click', () => {
+    el('round-power-overlay').hidden = true;
+    startGame();
+  });
+  el('round-power-cancel-button').addEventListener('click', () => {
+    el('round-power-overlay').hidden = true;
+    showScreen('front');
+  });
 
   el('new-game-button').addEventListener('click', requestNewGame);
   el('tutorial-start-button').addEventListener('click', dismissTutorialAndStart);
@@ -1714,11 +1887,29 @@
   el('pause-button').addEventListener('click', () => isPaused ? resumeGame() : pauseGame());
   el('resume-button').addEventListener('click', resumeGame);
   el('game-menu-button').addEventListener('click', returnToMenu);
+  el('wild-letter-action').addEventListener('click', () => {
+    if (selectedRoundPower === 'anchor-word') {
+      if (anchorWordMode) {
+        anchorWordMode = false; selectedIndices = []; isSelecting = false; clearSelectionStyles();
+        board.querySelectorAll('.power-target-hover').forEach((tile) => tile.classList.remove('power-target-hover'));
+        el('word-feedback').textContent = 'Chain selection cancelled';
+      } else if (roundActive && anchorWordCharges > 0 && !isPowerActionLocked()) {
+        cancelPowerModes(); anchorWordMode = true; selectedIndices = []; isSelecting = false; clearSelectionStyles();
+        el('word-feedback').textContent = 'Chain: drag across connected tiles to protect them';
+      }
+      renderActionCharges(); return;
+    }
+    if (wildLetterMode) {
+      wildLetterMode = false; wildLetterLetter = null; wildLetterTargetIndex = null;
+      board.querySelectorAll('.power-target-selected, .power-target-hover').forEach((tile) => tile.classList.remove('power-target-selected', 'power-target-hover'));
+      el('word-feedback').textContent = 'Wild Letter placement cancelled'; renderActionCharges();
+    } else activateWildLetter();
+  });
   el('rotate-action').addEventListener('click', rotateBoardClockwise);
   el('randomize-action').addEventListener('click', armRandomize);
   el('bomb-action').addEventListener('click', armBomb);
   el('swap-action').addEventListener('click', armSwap);
-  el('play-again-button').addEventListener('click', startGame);
+  el('play-again-button').addEventListener('click', requestNewGame);
   el('results-menu-button').addEventListener('click', () => { el('game-over').hidden = true; showScreen('front'); });
 
   board.addEventListener('pointerdown', (event) => {
@@ -1734,12 +1925,13 @@
     }
     const tile = event.target.closest('.tile');
     if (!tile) return;
-    if (randomizeMode || swapMode) {
+    if (randomizeMode || swapMode || wildLetterMode || anchorWordMode) {
       board.querySelectorAll('.power-target-hover').forEach((item) => item.classList.remove('power-target-hover'));
       tile.classList.add('power-target-hover');
     }
     if (swapMode) {
       const index = Number(tile.dataset.index);
+      if (tiles[index]?.isWildLetter || tiles[index]?.isAnchored) { el('word-feedback').textContent = tiles[index]?.isAnchored ? 'Chained tiles cannot be swapped' : 'Wild Letter tiles cannot be swapped'; return; }
       if (swapFirstIndex === null) {
         swapFirstIndex = index;
         tile.classList.add('power-target-selected');
@@ -1748,7 +1940,8 @@
       } else useSwap(swapFirstIndex, index);
       return;
     }
-    if (randomizeMode) { randomizeTileLetter(Number(tile.dataset.index)); return; }
+    if (randomizeMode) { const targetIndex = Number(tile.dataset.index); if (tiles[targetIndex]?.isWildLetter || tiles[targetIndex]?.isAnchored) { el('word-feedback').textContent = tiles[targetIndex]?.isAnchored ? 'Chained tiles cannot be randomized' : 'Wild Letter tiles cannot be randomized'; return; } randomizeTileLetter(targetIndex); return; }
+    if (wildLetterMode) { openWildLetterPicker(Number(tile.dataset.index)); return; }
     isSelecting = true;
     selectedIndices = [];
     lastPointerX = event.clientX;
@@ -1776,7 +1969,7 @@
       }
       return;
     }
-    if ((randomizeMode || swapMode) && roundActive && !actionBusy) {
+    if ((randomizeMode || swapMode || wildLetterMode) && roundActive && !actionBusy) {
       const targetIndex = tileIndexFromPoint(event.clientX, event.clientY);
       board.querySelectorAll('.power-target-hover').forEach((tile) => tile.classList.remove('power-target-hover'));
       if (targetIndex >= 0) {
@@ -1786,6 +1979,10 @@
       return;
     }
     board.querySelectorAll('.power-target-hover').forEach((tile) => tile.classList.remove('power-target-hover'));
+    if (anchorWordMode && roundActive && !actionBusy) {
+      const hoverIndex = tileIndexFromPoint(event.clientX, event.clientY);
+      if (hoverIndex >= 0) board.querySelector(`[data-index="${hoverIndex}"]`)?.classList.add('power-target-hover');
+    }
     if (!isSelecting || !roundActive || actionBusy) return;
     // Keep the visual trace on the real pointer coordinates. Tile selection still
     // samples between pointer events separately so fast drags cannot skip tiles.

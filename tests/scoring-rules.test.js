@@ -181,3 +181,13 @@ console.log('PASS: unlimited Rotate and end-frame handoff source guards');
   assert.match(source, /rotateClockwiseSourceIndex\(destinationIndex, SIZE\)/);
 }
 console.log('PASS: Bomb aiming icon and localized blast source guards');
+
+// Wild Letters always contribute exactly one point and ignore inherited tile bonuses.
+{
+  const wild = { letter: 'Z', bonus: '3WS', isWildLetter: true, id: 'wild-test-1' };
+  const result = rules.calculateWordScore([tile('A'), tile('B'), wild], [0, 1, 2], points);
+  assert.equal(result.base, points[1] + points[2] + 1);
+  assert.equal(result.multiplier, 1, 'Wild Letter must not apply an inherited word multiplier');
+  assert.equal(result.total, points[1] + points[2] + 1, 'Wild Letter score ignores inherited letter/word bonus metadata');
+}
+console.log('PASS: Wild Letter fixed value and bonus isolation');
