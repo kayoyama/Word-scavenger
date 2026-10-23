@@ -187,6 +187,13 @@
           <p class="eyebrow">ROUND PAUSED</p>
           <h2 id="pause-title">Take a breather</h2>
           <button id="resume-button" class="menu-button primary" type="button">Resume</button>
+          <button id="bag-inspector-toggle" class="menu-button" type="button" aria-expanded="false">Inspect live Marble Bags</button>
+          <section id="bag-inspector" class="bag-inspector" hidden aria-label="Live Marble Bag diagnostics">
+            <div class="bag-inspector-heading"><h3>Live Marble Bags</h3><button id="bag-inspector-refresh" type="button" class="small-button">Refresh view</button></div>
+            <p class="bag-inspector-note">Read-only view of the active in-memory bags. Opening this panel does not draw, shuffle, replenish, or save bag contents.</p>
+            <div id="bag-inspector-last-draw" class="bag-inspector-last-draw"></div>
+            <div id="bag-inspector-content" class="bag-inspector-content"></div>
+          </section>
           <button id="game-menu-button" class="menu-button" type="button">← Main Menu</button>
         </section>
       </div>

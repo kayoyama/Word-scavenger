@@ -194,13 +194,58 @@
 
   function randomInt(max) { return Math.floor(Math.random() * max) + 1; }
 
+  // Diagnostic snapshot lets marble-bag-preview.html inspect the active game's
+  // current bag counts after a refresh. This is telemetry only; it does not restore
+  // or alter the active game's in-memory bags.
+  const MARBLE_BAG_DEBUG_KEY = 'wordScavengerMarbleBagDebugSnapshot';
+  function publishMarbleBagSnapshot(boardState = tiles, lastTile = null) {
+    if (!marbleBag) return;
+    try {
+      const snapshotBoard = Array.isArray(boardState) ? boardState.map((tile) => tile ? {
+        letter: tile.letter,
+        bonus: tile.bonus || 'NO',
+        isWildLetter: Boolean(tile.isWildLetter),
+        isAnchored: Boolean(tile.isAnchored)
+      } : null) : [];
+      if (lastTile && Number.isInteger(lastTile.index) && lastTile.index >= 0 && lastTile.index < snapshotBoard.length) {
+        snapshotBoard[lastTile.index] = {
+          letter: lastTile.tile.letter,
+          bonus: lastTile.tile.bonus || 'NO',
+          isWildLetter: Boolean(lastTile.tile.isWildLetter),
+          isAnchored: Boolean(lastTile.tile.isAnchored)
+        };
+      }
+      localStorage.setItem(MARBLE_BAG_DEBUG_KEY, JSON.stringify({
+        version: 1,
+        updatedAt: new Date().toISOString(),
+        roundActive,
+        isPaused,
+        bags: marbleBag.getState(),
+        lastDraw: marbleBag.getLastDraw(),
+        board: snapshotBoard
+      }));
+    } catch (error) {
+      // Private browsing or disabled storage must never interrupt gameplay.
+    }
+  }
+
   // Marble Bag owns all random tile generation. Rendering and animations remain in game.js.
   function drawLetter(boardState = tiles, targetIndex = -1) {
-    return marbleBag.drawLetter(boardState, targetIndex);
+    const letter = marbleBag.drawLetter(boardState, targetIndex);
+    publishMarbleBagSnapshot(boardState);
+    return letter;
   }
 
   function drawBonus(boardState = tiles, targetIndex = -1) {
-    return marbleBag.drawBonus(boardState, targetIndex);
+    const bonus = marbleBag.drawBonus(boardState, targetIndex);
+    publishMarbleBagSnapshot(boardState);
+    return bonus;
+  }
+
+  function generateMarbleTile(boardState, targetIndex, tileOptions = {}) {
+    const tile = marbleBag.generateTile(boardState, targetIndex, tileOptions);
+    publishMarbleBagSnapshot(boardState, { index: targetIndex, tile });
+    return tile;
   }
 
   function createTile(index, letter, bonus) {
@@ -635,8 +680,9 @@
     // Keep the old board in place for the explosion; mutate/refill only after it finishes.
     scheduleRefillTimer(() => {
       // New tiles entering from above receive independently random letters and no inherited bonus.
-      const bombResult = gameLogic.bombClearAndGravity(tiles, SIZE, row, col, (destinationIndex, projectedBoard) => marbleBag.generateTile(projectedBoard, destinationIndex));
+      const bombResult = gameLogic.bombClearAndGravity(tiles, SIZE, row, col, (destinationIndex, projectedBoard) => generateMarbleTile(projectedBoard, destinationIndex));
       tiles = bombResult.tiles;
+      publishMarbleBagSnapshot(tiles);
       // Only tiles above the explosion cascade down. Rows below the 2×2 target
       // remain untouched. Each tile landing in the explosion compares its bonus
       // against that exact destination's exploded bonus; never recolor whole columns.
@@ -899,6 +945,7 @@
           if (!current) return;
           // Keep bonus metadata (and therefore its theme-specific color) unchanged.
           tiles[index] = gameLogic.withRandomizedLetter(current, replacementLetters[flip]);
+          publishMarbleBagSnapshot(tiles);
           updateTileElement(index);
           const updated = board.querySelector(`[data-index="${index}"]`);
           if (updated) updated.classList.add('tile-flip', 'action-tile-flip');
@@ -997,10 +1044,11 @@
       const tileOptions = Object.prototype.hasOwnProperty.call(bonusOverrides, index)
         ? { bonusOverride: bonusOverrides[index] }
         : {};
-      const newTile = marbleBag.generateTile(projectedBoard, index, tileOptions);
+      const newTile = generateMarbleTile(projectedBoard, index, tileOptions);
       generatedByIndex.set(index, newTile);
       projectedBoard[index] = newTile;
     });
+    publishMarbleBagSnapshot(projectedBoard);
 
     indices.forEach((index, position) => {
       const startDelay = position * staggerMs;
@@ -1106,6 +1154,7 @@
         return;
       }
       tiles[index].bonus = bonusType;
+      publishMarbleBagSnapshot(tiles);
       updateTileElement(index);
       const updatedElement = board.querySelector(`[data-index="${index}"]`);
       if (updatedElement) updatedElement.classList.add('long-word-bonus-transform', 'tile-refill-locked');
@@ -1129,9 +1178,10 @@
     marbleBag = marbleBagFactory.createEngine();
     tiles = new Array(SIZE * SIZE).fill(null);
     for (let index = 0; index < SIZE * SIZE; index += 1) {
-      const tile = marbleBag.generateTile(tiles, index);
+      const tile = generateMarbleTile(tiles, index);
       tiles[index] = tile;
     }
+    publishMarbleBagSnapshot(tiles);
     selectedIndices = [];
     isSelecting = false;
     actionBusy = false;
@@ -1874,6 +1924,51 @@
   el('settings-back-button').addEventListener('click', () => showScreen('front'));
   el('theme-classic-choice').addEventListener('click', () => document.body.classList.remove('theme-style2'));
   el('theme-style2-choice').addEventListener('click', () => document.body.classList.add('theme-style2'));
+  function formatBagFrequencies(frequencies) {
+    const entries = Object.entries(frequencies || {}).sort((a, b) => a[0].localeCompare(b[0]));
+    if (!entries.length) return '<em>Empty — replenishes on the next requested draw.</em>';
+    return entries.map(([value, count]) => `<span class="bag-chip"><strong>${escapeHtml(String(value))}</strong><small>×${count}</small></span>`).join(' ');
+  }
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+  }
+  function renderLiveBagInspector() {
+    if (!marbleBag) return;
+    const contents = marbleBag.getContents();
+    const last = marbleBag.getLastDraw();
+    const lastEl = el('bag-inspector-last-draw');
+    const contentEl = el('bag-inspector-content');
+    if (!lastEl || !contentEl) return;
+    const letter = last.letter;
+    const bonus = last.bonus;
+    const forcedLetter = Boolean(letter && (letter.categorySource === 'board-balance' || letter.groupSource === 'board-balance'));
+    const forcedBonus = Boolean(bonus && bonus.categorySource === 'board-balance');
+    const describe = (item) => {
+      if (!item) return 'No draw recorded yet.';
+      return Object.entries(item).map(([key, value]) => `${key}: ${value == null ? '—' : value}`).join(' · ');
+    };
+    const letterDecision = !letter ? 'No letter draw recorded yet.' : `${letter.categorySource === 'board-balance' ? 'Vowel/consonant balance forced the category; top-level letter category bag bypassed.' : 'Letter category selected naturally from the category bag.'} ${letter.groupSource === 'board-balance' ? 'Common/uncommon safeguard forced the consonant subgroup; subgroup selector bypassed.' : (letter.category === 'consonant' ? 'Consonant subgroup selected naturally.' : 'No consonant subgroup draw needed.')}`;
+    const bonusDecision = !bonus ? 'No bonus draw recorded yet.' : (bonus.categorySource === 'board-balance' ? 'Normal/bonus balance forced the category; top-level bonus category bag bypassed.' : 'Normal/bonus category selected naturally from the category bag.');
+    lastEl.innerHTML = `<h4>Most recent draw decision</h4><p><strong>Letter:</strong> ${escapeHtml(describe(letter))}</p><p><strong>Letter draw path:</strong> ${escapeHtml(letterDecision)}</p><p><strong>Bonus:</strong> ${escapeHtml(describe(bonus))}</p><p><strong>Bonus draw path:</strong> ${escapeHtml(bonusDecision)}</p>`;
+    const labels = {
+      letterCategory: 'Letter category bag (V / C)', vowelLetters: 'Vowel letter bag', consonantGroup: 'Common / uncommon selector', commonLetters: 'Common consonants', uncommonLetters: 'Uncommon consonants', bonusCategory: 'Bonus category bag (NO / BONUS)', normalTiles: 'Normal tile bag', bonusTypes: 'Bonus type bag'
+    };
+    contentEl.innerHTML = Object.entries(contents).map(([key, bag]) => {
+      const remainingText = bag.entries.length ? bag.entries.map((entry) => escapeHtml(String(entry))).join(' · ') : 'EMPTY — next requested draw will replenish this bag';
+      return `<section class="live-bag-card"><div class="live-bag-title"><h4>${escapeHtml(labels[key] || key)}</h4><strong>${bag.remaining} / ${bag.size}</strong></div><p class="live-bag-meta">Draws: ${bag.draws} · Replenishments: ${bag.replenishments}</p><div class="live-bag-frequencies">${formatBagFrequencies(bag.frequencies)}</div><details><summary>Show remaining entries (${bag.remaining})</summary><p class="live-bag-entry-list">${remainingText}</p></details></section>`;
+    }).join('');
+  }
+  function toggleLiveBagInspector(forceOpen) {
+    const panel = el('bag-inspector');
+    const button = el('bag-inspector-toggle');
+    if (!panel || !button) return;
+    const open = typeof forceOpen === 'boolean' ? forceOpen : panel.hidden;
+    panel.hidden = !open;
+    button.setAttribute('aria-expanded', String(open));
+    button.textContent = open ? 'Hide live Marble Bags' : 'Inspect live Marble Bags';
+    if (open) renderLiveBagInspector();
+  }
+
   function pauseGame() {
     if (!roundActive || isPaused || el('countdown-overlay').hidden === false) return;
     isPaused = true;
@@ -1883,23 +1978,28 @@
     el('pause-overlay').hidden = false;
     el('pause-button').textContent = '▶';
     el('pause-button').setAttribute('aria-label', 'Resume game');
+    publishMarbleBagSnapshot(tiles);
     el('resume-button').focus();
   }
   function resumeGame() {
     if (!isPaused || !roundActive) return;
     isPaused = false;
     el('pause-overlay').hidden = true;
+    toggleLiveBagInspector(false);
     timerId = window.setInterval(tick, 1000);
     resumeChronoComboTimer(pausedComboTimer);
     pausedComboTimer = false;
     el('pause-button').textContent = 'Ⅱ';
     el('pause-button').setAttribute('aria-label', 'Pause game');
+    publishMarbleBagSnapshot(tiles);
     el('pause-button').focus();
   }
   function returnToMenu() {
     isPaused = false;
     el('pause-overlay').hidden = true;
+    toggleLiveBagInspector(false);
     roundActive = false;
+    publishMarbleBagSnapshot(tiles);
     hideChronoCombo();
     stopTimers();
     cancelPowerModes();
@@ -1907,6 +2007,8 @@
     showScreen('front');
   }
   el('pause-button').addEventListener('click', () => isPaused ? resumeGame() : pauseGame());
+  el('bag-inspector-toggle').addEventListener('click', () => toggleLiveBagInspector());
+  el('bag-inspector-refresh').addEventListener('click', renderLiveBagInspector);
   el('resume-button').addEventListener('click', resumeGame);
   el('game-menu-button').addEventListener('click', returnToMenu);
   el('wild-letter-action').addEventListener('click', () => {

@@ -23,3 +23,20 @@ Validation performed
 Notes
 - Bag state is in memory and resets for each new round; no localStorage persistence was added.
 - The bonus-tile tolerance of 5–10 per 25-tile board is an initial tuning range, not a permanently fixed balance target.
+
+Diagnostic snapshot update
+- The active game now writes a read-only diagnostic snapshot to localStorage under wordScavengerMarbleBagDebugSnapshot.
+- marble-bag-preview.html automatically displays the most recent game board, bag counts, and last draw after page load/refresh when both pages use the same origin (for example, the same VS Code Live Server host/port).
+- Use “Reload latest game snapshot” to load a newer snapshot without refreshing.
+- This snapshot is for inspection only; it does not restore the active game or persist the actual in-memory bags across rounds.
+- If the game is opened via file:// while the preview is opened via Live Server, browser storage is isolated and the snapshot will not be shared. Open both through the same Live Server origin.
+
+
+Temporary live Marble Bag inspector update
+------------------------------------------
+- Added an Inspect live Marble Bags panel to the in-game pause overlay.
+- Reads copied, read-only views of active in-memory bag entries; it does not use localStorage as the source of bag contents.
+- Displays exact remaining entries behind expandable lists, frequency counts, draw/replenishment counters, and the most recent letter/bonus draw path.
+- Explicitly reports when board balancing forced a category and bypassed the corresponding top-level bag or consonant subgroup selector.
+- The existing marble-bag-preview.html remains a separate snapshot diagnostics page.
+- Automated Node test files were run after this update; all passed. Browser-based gameplay smoke testing was not performed in this environment.

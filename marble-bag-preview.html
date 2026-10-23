@@ -42,6 +42,10 @@
     .progress { height: 6px; background: #1a3554; border-radius: 99px; overflow: hidden; margin-top: 8px; }
     .progress span { display: block; height: 100%; background: #46b7ed; width: 0; }
     .draw-log { border-radius: 10px; background: #071a30; padding: 12px; min-height: 72px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .88rem; line-height: 1.5; }
+    .snapshot-banner { border: 1px solid #4f8c65; background: #102f2b; border-radius: 12px; padding: 12px 14px; margin-top: 16px; }
+    .snapshot-banner strong { color: #9ce6b0; }
+    .snapshot-banner.stale { border-color: #876a35; background: #302818; }
+    .snapshot-banner.stale strong { color: #f5d28a; }
     @media (max-width: 760px) { body { padding: 12px; } .layout { grid-template-columns: 1fr; } .bags { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 390px) { .bags { grid-template-columns: 1fr; } .panel { padding: 12px; } }
   </style>
@@ -52,13 +56,15 @@
   <h1>Marble Bag Explorer</h1>
   <p class="muted">Live preview of the same bag engine used by Word Scavenger v3. This is a diagnostic page; it does not modify the game or its saved statistics.</p>
   <div class="controls">
-    <button class="primary" id="draw-next">Draw next tile</button>
-    <button id="generate-board">Generate full board</button>
-    <button id="new-round">Reset bags and board</button>
+    <button class="primary" id="draw-next">Draw next tile (simulation)</button>
+    <button id="generate-board">Generate simulated board</button>
+    <button id="new-round">Reset simulation</button>
+    <button id="load-game-snapshot">Reload latest game snapshot</button>
   </div>
+  <div id="snapshot-banner" class="snapshot-banner" hidden></div>
   <div class="layout">
     <section class="panel">
-      <h2>Projected 5 × 5 board</h2>
+      <h2 id="board-heading">Projected 5 × 5 board</h2>
       <div id="board" class="board" aria-label="Marble Bag preview board"></div>
       <div class="metrics" id="metrics"></div>
       <h2 style="margin-top:18px">Last draw decision</h2>
@@ -89,6 +95,9 @@
     const engine = window.WordMarbleBag.createEngine();
     let tiles = Array(25).fill(null);
     let nextIndex = 0;
+    let gameSnapshot = null;
+    let showingGameSnapshot = false;
+    const SNAPSHOT_KEY = 'wordScavengerMarbleBagDebugSnapshot';
     const $ = (id) => document.getElementById(id);
     const letterBags = [
       ['letterCategory', 'Letter category', '38 vowel / 62 consonant'],
@@ -103,9 +112,8 @@
       ['bonusTypes', 'Bonus type bag', '2LS 25 · 3LS 20 · 2WS 18 · 3WS 12']
     ];
     function tileClass(bonus) { return ({ '2LS': 'b2ls', '3LS': 'b3ls', '2WS': 'b2ws', '3WS': 'b3ws' })[bonus] || ''; }
-    function drawLog() {
-      const last = engine.getLastDraw();
-      if (!last.letter && !last.bonus) { $('draw-log').textContent = 'Draw a tile to inspect which bags were used.'; return; }
+    function drawLog(last = engine.getLastDraw()) {
+      if (!last || (!last.letter && !last.bonus)) { $('draw-log').textContent = 'No draw decision recorded yet.'; return; }
       const letter = last.letter;
       const bonus = last.bonus;
       const lines = [];
@@ -121,10 +129,10 @@
       }
       $('draw-log').textContent = lines.join('\n');
     }
-    function renderBoard() {
+    function renderBoard(boardTiles = tiles) {
       const board = $('board');
       board.replaceChildren();
-      tiles.forEach((tile, index) => {
+      boardTiles.forEach((tile, index) => {
         const cell = document.createElement('div');
         cell.className = `tile ${tile ? tileClass(tile.bonus) : 'empty'}`;
         if (tile) {
@@ -137,9 +145,9 @@
         }
         board.append(cell);
       });
-      const filled = tiles.filter(Boolean);
-      const vowels = filled.filter((t) => 'AEIOU'.includes(t.letter)).length;
-      const uncommon = filled.filter((t) => 'PBFWYVKQJXZ'.includes(t.letter)).length;
+      const filled = boardTiles.filter(Boolean);
+      const vowels = filled.filter((t) => 'AEIOU'.includes(String(t.letter || '').toUpperCase())).length;
+      const uncommon = filled.filter((t) => 'PBFWYVKQJXZ'.includes(String(t.letter || '').toUpperCase())).length;
       const bonuses = filled.filter((t) => t.bonus !== 'NO' && !t.isWildLetter).length;
       $('metrics').innerHTML = '';
       [['Tiles', `${filled.length}/25`], ['Vowels', vowels], ['Uncommon', uncommon], ['Bonus tiles', bonuses], ['Normal tiles', filled.length - bonuses], ['Empty', 25 - filled.length]].forEach(([label, value]) => {
@@ -162,30 +170,80 @@
         card.append(heading, count, detail, progress); container.append(card);
       });
     }
+    function loadSnapshot() {
+      try {
+        const raw = localStorage.getItem(SNAPSHOT_KEY);
+        const parsed = raw ? JSON.parse(raw) : null;
+        gameSnapshot = parsed && parsed.version === 1 && Array.isArray(parsed.board) && parsed.bags ? parsed : null;
+      } catch (error) { gameSnapshot = null; }
+      showingGameSnapshot = Boolean(gameSnapshot);
+      render();
+    }
     function render() {
+      const banner = $('snapshot-banner');
+      if (showingGameSnapshot && gameSnapshot) {
+        const stamp = new Date(gameSnapshot.updatedAt);
+        const validStamp = !Number.isNaN(stamp.getTime());
+        banner.hidden = false;
+        banner.classList.toggle('stale', validStamp && Date.now() - stamp.getTime() > 5 * 60 * 1000);
+        banner.innerHTML = `<strong>Showing latest saved game snapshot</strong><br><span class="muted">Updated ${validStamp ? stamp.toLocaleString() : 'at an unknown time'} · ${gameSnapshot.roundActive ? (gameSnapshot.isPaused ? 'Round paused' : 'Round active') : 'Round not active'}. Refresh this page after playing to load the newest snapshot. This is a read-only snapshot, not a live connection.</span>`;
+        renderBoard(gameSnapshot.board);
+        const filled = gameSnapshot.board.filter(Boolean);
+        const vowels = filled.filter((t) => 'AEIOU'.includes(String(t.letter || '').toUpperCase())).length;
+        const uncommon = filled.filter((t) => 'PBFWYVKQJXZ'.includes(String(t.letter || '').toUpperCase())).length;
+        const bonuses = filled.filter((t) => t.bonus !== 'NO' && !t.isWildLetter).length;
+        $('metrics').innerHTML = '';
+        [['Tiles', `${filled.length}/25`], ['Vowels', vowels], ['Uncommon', uncommon], ['Bonus tiles', bonuses], ['Normal tiles', filled.length - bonuses], ['Empty', 25 - filled.length]].forEach(([label, value]) => {
+          const item = document.createElement('div'); item.className = 'metric';
+          const strong = document.createElement('strong'); strong.textContent = value;
+          const span = document.createElement('span'); span.textContent = label;
+          item.append(strong, span); $('metrics').append(item);
+        });
+        renderBags('letter-bags', letterBags, gameSnapshot.bags);
+        renderBags('bonus-bags', bonusBags, gameSnapshot.bags);
+        drawLog(gameSnapshot.lastDraw);
+        $('board-heading').textContent = 'Current game board snapshot';
+        $('draw-heading').textContent = 'Last recorded bag draw';
+        $('draw-next').disabled = false;
+        return;
+      }
+      banner.hidden = true;
       renderBoard();
       const state = engine.getState();
       renderBags('letter-bags', letterBags, state);
       renderBags('bonus-bags', bonusBags, state);
       drawLog();
+      $('board-heading').textContent = 'Simulated 5 × 5 board';
+      $('draw-heading').textContent = 'Last simulated draw decision';
       $('draw-next').disabled = nextIndex >= 25;
     }
+    function startSimulationIfNeeded() {
+      if (showingGameSnapshot) {
+        showingGameSnapshot = false;
+        engine.reset();
+        tiles = Array(25).fill(null);
+        nextIndex = 0;
+      }
+    }
     function drawNext() {
+      startSimulationIfNeeded();
       if (nextIndex >= 25) return;
       tiles[nextIndex] = engine.generateTile(tiles, nextIndex);
       nextIndex += 1;
       render();
     }
     function reset() {
+      showingGameSnapshot = false;
       engine.reset();
       tiles = Array(25).fill(null);
       nextIndex = 0;
       render();
     }
     $('draw-next').addEventListener('click', drawNext);
-    $('generate-board').addEventListener('click', () => { while (nextIndex < 25) drawNext(); });
+    $('generate-board').addEventListener('click', () => { startSimulationIfNeeded(); while (nextIndex < 25) drawNext(); });
     $('new-round').addEventListener('click', reset);
-    render();
+    $('load-game-snapshot').addEventListener('click', loadSnapshot);
+    loadSnapshot();
   })();
 </script>
 </body>

@@ -242,8 +242,20 @@
       return { letter: lastDraw.letter ? { ...lastDraw.letter } : null, bonus: lastDraw.bonus ? { ...lastDraw.bonus } : null };
     }
 
+    // Read-only live diagnostic snapshot. Copies arrays so callers cannot mutate the active bags.
+    function getContents() {
+      const result = {};
+      Object.entries(bags).forEach(([key, bag]) => {
+        const remaining = bag.entries.slice();
+        const frequencies = {};
+        remaining.forEach((entry) => { frequencies[entry] = (frequencies[entry] || 0) + 1; });
+        result[key] = { remaining: remaining.length, size: bag.makeEntries().length, entries: remaining, frequencies, draws: bag.draws, replenishments: bag.replenishments };
+      });
+      return result;
+    }
+
     reset();
-    return Object.freeze({ reset, drawLetter, drawBonus, generateTile, returnLetter, previewLetter, weightedBonus, upgradeBonus, getState, getLastDraw });
+    return Object.freeze({ reset, drawLetter, drawBonus, generateTile, returnLetter, previewLetter, weightedBonus, upgradeBonus, getState, getLastDraw, getContents });
   }
 
   root.WordMarbleBag = Object.freeze({ createEngine, constants: Object.freeze({

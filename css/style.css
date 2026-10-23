@@ -917,3 +917,25 @@ body:not(.theme-style2) .wild-letter-tile {
   .wild-letter-action .action-copy strong { font-size: clamp(7px, 2.1vw, 10px) !important; letter-spacing: 0 !important; }
   .wild-letter-action .action-count { font-size: clamp(7px, 1.9vw, 9px) !important; padding: 2px 3px !important; }
 }
+
+/* Temporary v3 live Marble Bag inspector (read-only; remove after tuning). */
+.pause-card:has(.bag-inspector:not([hidden])) { width: min(920px, calc(100vw - 24px)); max-height: 92vh; overflow: auto; text-align: left; }
+.bag-inspector { margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,220,91,.35); text-align: left; }
+.bag-inspector[hidden] { display: none !important; }
+.bag-inspector-heading, .live-bag-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.bag-inspector-heading h3, .live-bag-title h4 { margin: 0; }
+.bag-inspector-note, .live-bag-meta { color: #a9c6e8; font-size: .82rem; line-height: 1.45; }
+.bag-inspector-last-draw, .live-bag-card { border: 1px solid rgba(120,170,220,.32); border-radius: 10px; background: rgba(3,17,36,.72); padding: 12px; margin: 10px 0; overflow-wrap: anywhere; }
+.bag-inspector-last-draw h4 { margin: 0 0 8px; }
+.bag-inspector-last-draw p { margin: 5px 0; font-size: .82rem; line-height: 1.45; }
+.bag-inspector-content { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 310px), 1fr)); gap: 8px; }
+.live-bag-card { margin: 0; }
+.live-bag-title strong { white-space: nowrap; color: #7ed5ff; }
+.live-bag-meta { margin: 5px 0 9px; }
+.live-bag-frequencies { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.bag-chip { display: inline-flex; align-items: center; gap: 5px; border: 1px solid rgba(120,170,220,.28); background: rgba(42,80,119,.35); border-radius: 6px; padding: 3px 6px; font-size: .78rem; }
+.bag-chip small { color: #a9c6e8; }
+.live-bag-card details { margin-top: 8px; font-size: .82rem; }
+.live-bag-card summary { cursor: pointer; color: #7ed5ff; }
+.live-bag-entry-list { max-height: 130px; overflow: auto; line-height: 1.6; color: #d7e6f8; }
+@media (max-width: 560px) { .pause-card:has(.bag-inspector:not([hidden])) { padding: 16px 12px; } .bag-inspector-heading { align-items: flex-start; flex-wrap: wrap; } }
