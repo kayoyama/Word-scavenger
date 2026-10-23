@@ -26,6 +26,8 @@
   const LETTER_POINTS = [0, 16, 34, 32, 23, 14, 42, 21, 41, 16, 81, 52, 22, 32, 19, 18, 34, 102, 19, 12, 19, 16, 45, 42, 82, 42, 101];
   const scoringRules = window.WordScoringRules;
   const gameLogic = window.WordGameLogic;
+  const marbleBagFactory = window.WordMarbleBag;
+  let marbleBag = null;
 
   const el = (id) => document.getElementById(id);
   const frontScreen = el('front-screen');
@@ -104,8 +106,6 @@
   let chronoComboClearTimeout = null;
   let chronoComboIndicator = null;
   let stats = readStats();
-  let letterBag = [];
-  let bonusBag = [];
 
   // Add the combo indicator dynamically so Phase 3 only requires replacing game.js.
   function installChronoComboUI() {
@@ -194,31 +194,14 @@
 
   function randomInt(max) { return Math.floor(Math.random() * max) + 1; }
 
-  // Exact weighted letter distribution from the original loadcharset2().
-  function makeLetterBag() {
-    const counts = {
-      A: 19, B: 5, C: 8, D: 8, E: 31, F: 5, G: 10, H: 7, I: 16,
-      J: 1, K: 2, L: 10, M: 8, N: 17, O: 19, P: 5, Q: 2, R: 17,
-      S: 13, T: 20, U: 11, V: 4, W: 5, X: 1, Y: 5, Z: 1
-    };
-    letterBag = [];
-    Object.entries(counts).forEach(([letter, count]) => {
-      for (let i = 0; i < count; i += 1) letterBag.push(letter);
-    });
+  // Marble Bag owns all random tile generation. Rendering and animations remain in game.js.
+  function drawLetter(boardState = tiles, targetIndex = -1) {
+    return marbleBag.drawLetter(boardState, targetIndex);
   }
 
-  // Fixed 500-entry bonus bag, matching the approved distribution exactly.
-  function makeBonusBag() {
-    bonusBag = [];
-    for (let i = 0; i < 350; i += 1) bonusBag.push('NO');
-    for (let i = 0; i < 50; i += 1) bonusBag.push('2LS');
-    for (let i = 0; i < 40; i += 1) bonusBag.push('3LS');
-    for (let i = 0; i < 35; i += 1) bonusBag.push('2WS');
-    for (let i = 0; i < 25; i += 1) bonusBag.push('3WS');
+  function drawBonus(boardState = tiles, targetIndex = -1) {
+    return marbleBag.drawBonus(boardState, targetIndex);
   }
-
-  function drawLetter() { return letterBag[randomInt(letterBag.length) - 1]; }
-  function drawBonus() { return bonusBag[randomInt(bonusBag.length) - 1]; }
 
   function createTile(index, letter, bonus) {
     const button = document.createElement('button');
@@ -652,7 +635,7 @@
     // Keep the old board in place for the explosion; mutate/refill only after it finishes.
     scheduleRefillTimer(() => {
       // New tiles entering from above receive independently random letters and no inherited bonus.
-      const bombResult = gameLogic.bombClearAndGravity(tiles, SIZE, row, col, () => ({ letter: drawLetter(), bonus: drawBonus() }));
+      const bombResult = gameLogic.bombClearAndGravity(tiles, SIZE, row, col, (destinationIndex, projectedBoard) => marbleBag.generateTile(projectedBoard, destinationIndex));
       tiles = bombResult.tiles;
       // Only tiles above the explosion cascade down. Rows below the 2×2 target
       // remain untouched. Each tile landing in the explosion compares its bonus
@@ -896,14 +879,11 @@
     const token = refillToken;
     const flipDuration = 110;
     const flipCount = 3;
-    const pickDifferentLetter = (oldLetter) => {
-      let nextLetter = drawLetter();
-      if (letterBag.length > 1) {
-        let attempts = 0;
-        while (nextLetter === oldLetter && attempts < 8) { nextLetter = drawLetter(); attempts += 1; }
-      }
-      return nextLetter;
-    };
+    // Return the outgoing letter once. The final letter is a real bag draw; the
+    // first two letters are visual-only previews so the three-flip animation does not
+    // consume extra bag entries. The same letter is allowed to be drawn again.
+    marbleBag.returnLetter(tiles[index].letter);
+    const replacementLetters = [marbleBag.previewLetter(), marbleBag.previewLetter(), drawLetter(tiles, index)];
 
     // Three quick flips make the letter shuffle visible without a separate animation system.
     for (let flip = 0; flip < flipCount; flip += 1) {
@@ -918,7 +898,7 @@
           const current = tiles[index];
           if (!current) return;
           // Keep bonus metadata (and therefore its theme-specific color) unchanged.
-          tiles[index] = gameLogic.withRandomizedLetter(current, pickDifferentLetter(current.letter));
+          tiles[index] = gameLogic.withRandomizedLetter(current, replacementLetters[flip]);
           updateTileElement(index);
           const updated = board.querySelector(`[data-index="${index}"]`);
           if (updated) updated.classList.add('tile-flip', 'action-tile-flip');
@@ -1008,6 +988,20 @@
     const staggerMs = 55;
     const revealDelayMs = 90;
 
+    // Build the projected board up front: consumed positions are empty, then each
+    // generated tile is included before the next draw is balanced.
+    const projectedBoard = tiles.slice();
+    indices.forEach((index) => { projectedBoard[index] = null; });
+    const generatedByIndex = new Map();
+    indices.forEach((index) => {
+      const tileOptions = Object.prototype.hasOwnProperty.call(bonusOverrides, index)
+        ? { bonusOverride: bonusOverrides[index] }
+        : {};
+      const newTile = marbleBag.generateTile(projectedBoard, index, tileOptions);
+      generatedByIndex.set(index, newTile);
+      projectedBoard[index] = newTile;
+    });
+
     indices.forEach((index, position) => {
       const startDelay = position * staggerMs;
       scheduleRefillTimer(() => {
@@ -1019,9 +1013,9 @@
         }
         tileElement.classList.add('tile-flip');
 
-        // Reveal the replacement near the midpoint of this tile's flip.
+        // Reveal the pre-generated tile near the midpoint of its flip.
         scheduleRefillTimer(() => {
-          tiles[index] = { letter: drawLetter(), bonus: Object.prototype.hasOwnProperty.call(bonusOverrides, index) ? bonusOverrides[index] : drawBonus() };
+          tiles[index] = generatedByIndex.get(index);
           updateTileElement(index);
           const updatedElement = board.querySelector(`[data-index="${index}"]`);
           if (updatedElement) updatedElement.classList.add('tile-flip', 'tile-refill-locked');
@@ -1037,10 +1031,10 @@
     });
   }
 
-  // Long Word Bonus: long valid words create new bonus tiles without replacing letters.
-  // Existing bonus tiles, consumed tiles, and temporarily locked tiles are never transform candidates.
+  // Long Word Bonus: transform or upgrade eligible tiles without consuming bonus-bag entries.
+  // Wild Letters, anchored tiles, consumed tiles, and temporarily locked tiles are excluded.
   function randomBonusType() {
-    return ['2LS', '3LS', '2WS', '3WS'][randomInt(4) - 1];
+    return marbleBag.weightedBonus();
   }
 
   function grantLongWordBonuses(wordLength, usedIndices) {
@@ -1049,17 +1043,18 @@
     if (!rewardCount) return refillBonusOverrides;
 
     const used = new Set(usedIndices);
-    const availableOrdinary = () => tiles
+    const availableTransformCandidates = () => tiles
       .map((tile, index) => ({ tile, index }))
-      .filter(({ tile, index }) => tile.bonus === 'NO' && !tile.isWildLetter && !tile.isAnchored && !used.has(index) && !lockedTileIndices.has(index));
+      .filter(({ tile, index }) => !tile.isWildLetter && !tile.isAnchored && !used.has(index) && !lockedTileIndices.has(index));
     const availableRefills = usedIndices.filter((index) => !Object.prototype.hasOwnProperty.call(refillBonusOverrides, index));
     let remaining = rewardCount;
 
-    // First reward prefers transforming one existing ordinary tile.
-    const firstCandidates = availableOrdinary();
+    // Rewards may select any eligible tile: normal tiles gain a weighted bonus,
+    // 2× tiles upgrade within their family, and 3× tiles remain unchanged.
+    const firstCandidates = availableTransformCandidates();
     if (remaining > 0 && firstCandidates.length) {
       const chosen = firstCandidates[randomInt(firstCandidates.length) - 1];
-      transformTileIntoBonus(chosen.index, randomBonusType());
+      transformTileIntoBonus(chosen.index, marbleBag.upgradeBonus(chosen.tile.bonus || 'NO'));
       remaining -= 1;
     }
 
@@ -1070,12 +1065,12 @@
       remaining -= 1;
     }
 
-    // A third reward prefers another ordinary tile; if none is eligible, use another refill.
+    // Further rewards use another eligible tile; if none exists, use a refill.
     while (remaining > 0) {
-      const candidates = availableOrdinary();
+      const candidates = availableTransformCandidates();
       if (candidates.length) {
         const chosen = candidates[randomInt(candidates.length) - 1];
-        transformTileIntoBonus(chosen.index, randomBonusType());
+        transformTileIntoBonus(chosen.index, marbleBag.upgradeBonus(chosen.tile.bonus || 'NO'));
         remaining -= 1;
         continue;
       }
@@ -1088,7 +1083,7 @@
       break;
     }
 
-    // If the board has no eligible ordinary tile, preserve the reward by using refills.
+    // If no eligible tile remains, preserve the reward by assigning it to a refill.
     while (remaining > 0 && availableRefills.length) {
       const refillIndex = availableRefills.shift();
       refillBonusOverrides[refillIndex] = randomBonusType();
@@ -1098,14 +1093,14 @@
   }
 
   function transformTileIntoBonus(index, bonusType) {
-    if (!tiles[index] || tiles[index].isWildLetter || tiles[index].bonus !== 'NO' || lockedTileIndices.has(index)) return false;
+    if (!tiles[index] || tiles[index].isWildLetter || lockedTileIndices.has(index)) return false;
     const tileElement = board.querySelector(`[data-index="${index}"]`);
     if (!tileElement) return false;
     lockedTileIndices.add(index);
     renderActionCharges();
     tileElement.classList.add('long-word-bonus-transform', 'tile-refill-locked');
     scheduleRefillTimer(() => {
-      if (!tiles[index] || tiles[index].bonus !== 'NO') {
+      if (!tiles[index] || tiles[index].isWildLetter) {
         lockedTileIndices.delete(index);
         renderActionCharges();
         return;
@@ -1131,9 +1126,12 @@
     cancelPowerModes();
     stopTimers();
     cancelRefillSequence();
-    makeLetterBag();
-    makeBonusBag();
-    tiles = Array.from({ length: SIZE * SIZE }, () => ({ letter: drawLetter(), bonus: drawBonus() }));
+    marbleBag = marbleBagFactory.createEngine();
+    tiles = new Array(SIZE * SIZE).fill(null);
+    for (let index = 0; index < SIZE * SIZE; index += 1) {
+      const tile = marbleBag.generateTile(tiles, index);
+      tiles[index] = tile;
+    }
     selectedIndices = [];
     isSelecting = false;
     actionBusy = false;

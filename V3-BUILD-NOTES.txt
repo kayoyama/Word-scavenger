@@ -1,0 +1,25 @@
+WORD SCAVENGER V3 — MARBLE BAG BUILD
+
+What changed
+- Added js/marble-bag.js as a separate in-memory bag engine.
+- Integrated true draw-without-replacement bags and independent replenishment.
+- Added projected-board safeguards for vowel/consonant, common/uncommon, and normal/bonus balance.
+- Connected initial board generation, ordinary refills, Bomb replacements, Randomize, and Long Word Bonus to the new rules.
+- Preserved the existing three-flip Randomize animation; only the final replacement consumes a letter-bag draw.
+- Long Word Bonus uses weighted assignment with replacement and does not consume bonus-bag entries. Wild Letter tiles remain unbonused.
+- Added MARBLE-BAG-SPEC.md and tests/marble-bag.test.js.
+
+Bag visualization
+- Open marble-bag-preview.html through VS Code Live Server to inspect the real engine.
+- Use “Draw next tile” to step through generation and inspect remaining entries and the latest draw path.
+- Use “Generate full board” to test the 5x5 safeguards.
+- Use “Reset bags and board” to start a fresh simulation.
+
+Validation performed
+- JavaScript syntax checks passed for the Marble Bag engine and integration files.
+- All existing tests/*.test.js scripts passed, including the new Marble Bag tests.
+- A 10,000-board simulation produced no violations of the initial vowel (8–12), uncommon consonant (2–5), or bonus tile (5–10) bounds.
+
+Notes
+- Bag state is in memory and resets for each new round; no localStorage persistence was added.
+- The bonus-tile tolerance of 5–10 per 25-tile board is an initial tuning range, not a permanently fixed balance target.

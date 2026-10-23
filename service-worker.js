@@ -1,6 +1,6 @@
 /* Word Scavenger PWA offline shell. Bump CACHE_NAME when releasing asset changes. */
 'use strict';
-const CACHE_NAME = 'word-scavenger-pwa-v6';
+const CACHE_NAME = 'word-scavenger-pwa-v7';
 const APP_SHELL = [
   './',
   './index.html',
@@ -10,6 +10,7 @@ const APP_SHELL = [
   './js/game.js',
   './js/scoring-rules.js',
   './js/game-logic.js',
+  './js/marble-bag.js',
   './js/wordlist.js',
   './js/theme-toggle.js',
   './js/pwa-register.js',

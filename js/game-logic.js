@@ -58,6 +58,15 @@
     ];
     const targetSet = new Set(targetIndices);
     const clearedIndices = targetIndices.filter((index) => !items[index]?.isAnchored);
+    clearedIndices.forEach((index) => { next[index] = null; });
+    // Clear every unanchored destination in both affected columns before generating
+    // any replacements, so each Marble Bag draw sees one coherent projected board.
+    [col, col + 1].forEach((column) => {
+      for (let r = 0; r <= row + 1; r += 1) {
+        const index = r * size + column;
+        if (!items[index]?.isAnchored) next[index] = null;
+      }
+    });
 
     // Chain protects individual tiles, not columns or regions. Keep each chained
     // tile fixed, but let every unchained tile in the affected columns fall through
@@ -73,6 +82,7 @@
       });
 
       const destinationIndices = affectedIndices.filter((index) => !items[index]?.isAnchored);
+      destinationIndices.forEach((index) => { next[index] = null; });
       const sourceIndices = affectedIndices.filter((index) => !items[index]?.isAnchored && !targetSet.has(index));
       let sourceCursor = sourceIndices.length - 1;
       const newDestinationIndices = [];
@@ -91,7 +101,7 @@
       }
       // Create fresh letters in top-to-bottom order for stable, predictable IDs.
       newDestinationIndices.sort((a, b) => a - b).forEach((destinationIndex) => {
-        const tile = createTile();
+        const tile = createTile(destinationIndex, next);
         next[destinationIndex] = tile;
         movementPlan.set(destinationIndex, { sourceIndex: null, isNew: true, tile });
         newTiles.add(tile);
