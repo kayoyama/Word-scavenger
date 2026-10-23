@@ -1,3 +1,23 @@
+## v0.2.3 — 2026-10-23 — Round Power mobile UX and Wild Letter uniqueness
+
+### Changed
+- Replaced the Wild Letter button's plain `W` with an inline wildcard-star SVG. The center button now switches between the wildcard symbol and the link icon for Chain Protect.
+- Renamed the user-facing Round Power from **Chain** to **Chain Protect** in the selection screen, center button, instructions, and feedback messages; internal identifiers remain stable.
+- Centered the Round Power icon, wrapped label, and charge count on narrow mobile layouts in both Classic and Style 2.
+- Updated the Wild Letter picker to visibly disable letters already assigned during the current round.
+
+### Fixed
+- Prevented a Wild Letter activation gesture from immediately selecting a board tile. Tile targeting now requires a completed tap on the same tile, movement of no more than 12 CSS pixels, and a brief activation guard. The existing target hover animation is preserved.
+- Enforced per-round Wild Letter letter uniqueness in both the picker and tile transformation logic. A letter is reserved only after successful Wild Letter creation, remains unavailable if that tile is later consumed or destroyed, and becomes available again in the next round. Cancelling the picker does not spend a charge or reserve a letter.
+
+### Verification
+- JavaScript syntax check passed.
+- Existing game-logic, scoring/timer, Chain Protect, and Wild Letter UI regression suites passed.
+- Added source-level regression checks for the Wild Letter icon, Chain Protect naming, disabled duplicate letters, round reset, touch movement threshold, same-tile release, and mobile centering styles.
+- Automated/source-level checks only; visual browser and Android device testing were not performed.
+
+---
+
 ## v0.2.2 — 2026-10-22 — Chain usability and Bomb gravity refinement
 
 ### Changed

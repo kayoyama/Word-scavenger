@@ -613,3 +613,19 @@ body.theme-style2 .wild-letter-tile .tile-value { color: #102b55 !important; tex
 .round-power-option .round-power-description { line-height: 1.35; }
 .round-power-option .round-power-charges { font-weight: 800; margin-top: 2px; }
 #round-power-action-symbol svg { display: block; width: 1.05em; height: 1.05em; }
+
+
+/* v0.2.3 mobile Round Power polish: centered wrapped labels and reliable icon sizing. */
+.wild-letter-action { align-items: center !important; text-align: center !important; }
+.wild-letter-action .action-symbol { display: flex; align-items: center; justify-content: center; }
+.wild-letter-action .action-symbol svg { display: block; width: 1.05em; height: 1.05em; flex: 0 0 auto; }
+.wild-letter-action .action-copy { min-width: 0; align-items: center; text-align: center; }
+.wild-letter-action .action-copy strong { display: block; width: 100%; text-align: center; line-height: 1.1; overflow-wrap: anywhere; word-break: normal; }
+.wild-letter-action .action-count { align-self: center; }
+.wild-letter-choice:disabled { opacity: .3; filter: grayscale(1); cursor: not-allowed; text-decoration: line-through; }
+@media (max-width: 520px) {
+  .wild-letter-action { justify-content: center !important; padding-left: 2px !important; padding-right: 2px !important; }
+  .wild-letter-action .action-symbol, .wild-letter-action .action-copy { width: 100%; }
+  .wild-letter-action .action-copy strong { font-size: clamp(7px, 2.1vw, 10px) !important; letter-spacing: 0 !important; }
+  .wild-letter-action .action-count { font-size: clamp(7px, 1.9vw, 9px) !important; padding: 2px 3px !important; }
+}

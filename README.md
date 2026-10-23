@@ -128,11 +128,18 @@ From the project root, run:
 These tests validate pure logic and source-level invariants. They do not substitute for live browser testing of animations, pointer targeting, localStorage, or PWA installation/offline behavior.
 
 
-### Chain Round Power (Phase 3)
+### Chain Protect Round Power (Phase 3)
 
-- Choose either Wild Letter or Chain before the round; they are mutually exclusive. The None option is currently removed.
-- Chain has one non-refillable charge. Activate it, then drag across any connected sequence of 2–5 tiles; it does not need to spell a valid word and setup does not score or consume tiles.
-- Chain is intended to protect a short tile sequence while waiting for letters such as S, ER, or ING to extend a word. The pre-round selector describes each power and shows its charge count.
-- Chained tiles retain their identities through Rotate and are individually protected from Randomize, Swap, and Bomb. Bombs still destroy unprotected tiles in the normal blast area. During the cascade, unchained tiles fall through available unchained positions while chained tiles stay fixed; new letters spawn only in top vacancies left after available tiles have moved.
-- Chained tiles used in a later valid word are consumed and replaced normally; the replacement tiles are not anchored.
+- Choose either Wild Letter or Chain Protect before the round; they are mutually exclusive. The None option is currently removed. Wild Letter choices already used in the current round are disabled and cannot be reused; availability resets when a new round starts.
+- Chain Protect has one non-refillable charge. Activate it, then drag across any connected sequence of 2–5 tiles; it does not need to spell a valid word and setup does not score or consume tiles.
+- Chain Protect is intended to protect a short tile sequence while waiting for letters such as S, ER, or ING to extend a word. The pre-round selector describes each power and shows its charge count.
+- Chain Protect tiles retain their identities through Rotate and are individually protected from Randomize, Swap, and Bomb. Bombs still destroy unprotected tiles in the normal blast area. During the cascade, unchained tiles fall through available unchained positions while chained tiles stay fixed; new letters spawn only in top vacancies left after available tiles have moved.
+- Chain Protect tiles used in a later valid word are consumed and replaced normally; the replacement tiles are not anchored.
 - The middle power button reflects the selected Round Power (Wild Letter or Chain).
+
+### Wild Letter touch and letter uniqueness (v0.2.3)
+
+- The center Round Power button uses a wildcard star SVG for Wild Letter and the link icon for Chain Protect. Its label, icon, and charge count reflect the selected power.
+- Letters successfully assigned to Wild Letter tiles cannot be selected again during that round, even if the tile is later consumed or destroyed. The available-letter set resets at the start of each new round.
+- On touch devices, Wild Letter targeting requires a completed tap on the same tile with movement under 12 CSS pixels. A short activation guard prevents a button gesture from bleeding into tile targeting.
+- Responsive styles center the middle power label and icon when the name wraps on narrow screens.

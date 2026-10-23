@@ -51,6 +51,10 @@
   let wildLetterMode = false;
   let wildLetterLetter = null;
   let wildLetterTargetIndex = null;
+  const usedWildLettersThisRound = new Set();
+  let wildLetterGesture = null;
+  let wildLetterActivatedAt = 0;
+  const WILD_LETTER_TAP_MOVE_THRESHOLD = 12;
   let anchorWordMode = false;
   let anchorWordCharges = 0;
   let nextWildLetterId = 1;
@@ -252,12 +256,12 @@
     if (anchorSelected) {
       actionSymbol.innerHTML = '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M10 13.5a5 5 0 0 0 7.1 0l2.4-2.4a5 5 0 0 0-7.1-7.1l-1.4 1.4"/><path d="M14 10.5a5 5 0 0 0-7.1 0l-2.4 2.4a5 5 0 0 0 7.1 7.1l1.4-1.4"/></svg>';
     } else {
-      actionSymbol.textContent = 'W';
+      actionSymbol.innerHTML = '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M12 2.8 14.7 8.4 21 9.3 16.5 13.7 17.6 20 12 17 6.4 20 7.5 13.7 3 9.3 9.3 8.4Z"/><path d="M18.8 2.5v3.2M17.2 4.1h3.2"/></svg>';
     }
-    el('round-power-action-label').textContent = anchorSelected ? 'CHAIN' : 'WILD LETTER';
+    el('round-power-action-label').textContent = anchorSelected ? 'CHAIN PROTECT' : 'WILD LETTER';
     el('wild-letter-count').textContent = anchorSelected ? `${anchorWordCharges} / 1` : `${wildLetterCharges} / ${WILD_LETTER_CHARGES_PER_ROUND}`;
     el('wild-letter-hint').textContent = anchorSelected
-      ? (anchorWordMode ? `Select 2–${MAX_CHAIN_TILES} connected tiles` : (anchorWordCharges > 0 ? `Protect up to ${MAX_CHAIN_TILES} tiles while waiting to extend a word` : 'Chain already created this round'))
+      ? (anchorWordMode ? `Select 2–${MAX_CHAIN_TILES} connected tiles` : (anchorWordCharges > 0 ? `Protect 2–${MAX_CHAIN_TILES} tiles while waiting to extend a word` : 'Chain Protect already used this round'))
       : (wildLetterMode ? 'Choose a tile, then choose its letter' : (wildLetterCharges > 0 ? 'Choose a tile, then its letter' : 'Wild Letter already used up'));
     const boardLocked = isPowerActionLocked();
     const powerModeActive = anchorSelected ? anchorWordMode : wildLetterMode;
@@ -317,6 +321,7 @@
     wildLetterMode = false;
     anchorWordMode = false;
     wildLetterLetter = null;
+    wildLetterGesture = null;
     wildLetterTargetIndex = null;
     bombMode = false;
     bombGestureTarget = null;
@@ -792,6 +797,8 @@
     if (!roundActive || selectedRoundPower !== 'wild-letter' || wildLetterCharges <= 0 || isPowerActionLocked()) return;
     cancelPowerModes();
     wildLetterMode = true;
+    wildLetterActivatedAt = Date.now();
+    wildLetterGesture = null;
     wildLetterTargetIndex = null;
     selectedIndices = [];
     isSelecting = false;
@@ -807,17 +814,31 @@
     board.querySelector(`[data-index="${index}"]`)?.classList.add('power-target-selected');
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay wild-letter-picker-overlay';
-    overlay.innerHTML = '<section class="tutorial-card wild-letter-picker" role="dialog" aria-modal="true" aria-labelledby="wild-letter-picker-title"><p class="eyebrow">WILD LETTER</p><h2 id="wild-letter-picker-title">Choose a letter</h2><p>The selected tile will become this letter and be worth 1 point. This uses one charge.</p><div class="wild-letter-choices" role="group" aria-label="Choose wildcard letter"></div><div class="tutorial-actions"><button type="button" class="menu-button" data-wild-cancel>Cancel</button></div></section>';
+    overlay.innerHTML = '<section class="tutorial-card wild-letter-picker" role="dialog" aria-modal="true" aria-labelledby="wild-letter-picker-title"><p class="eyebrow">WILD LETTER</p><h2 id="wild-letter-picker-title">Choose a letter</h2><p>The selected tile will become this letter and be worth 1 point. This uses one charge. Each letter can be used only once per round; used letters are disabled.</p><div class="wild-letter-choices" role="group" aria-label="Choose wildcard letter"></div><div class="tutorial-actions"><button type="button" class="menu-button" data-wild-cancel>Cancel</button></div></section>';
     const choices = overlay.querySelector('.wild-letter-choices');
     'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach((letter) => {
       const button = document.createElement('button');
+      const alreadyUsed = usedWildLettersThisRound.has(letter);
       button.type = 'button';
       button.className = 'wild-letter-choice';
       button.textContent = letter;
+      button.disabled = alreadyUsed;
+      button.setAttribute('aria-label', alreadyUsed ? `${letter}, already used this round` : `Choose ${letter}`);
+      if (alreadyUsed) button.title = 'Already used this round';
       button.addEventListener('click', () => {
+        if (usedWildLettersThisRound.has(letter)) return;
         wildLetterLetter = letter;
-        overlay.remove();
-        transformTileIntoWildLetter(wildLetterTargetIndex);
+        const targetIndex = wildLetterTargetIndex;
+        if (transformTileIntoWildLetter(targetIndex)) {
+          overlay.remove();
+        } else {
+          wildLetterLetter = null;
+          el('word-feedback').textContent = 'Wild Letter could not be created · choose a tile again';
+          overlay.remove();
+          wildLetterTargetIndex = null;
+          board.querySelectorAll('.power-target-selected').forEach((tile) => tile.classList.remove('power-target-selected'));
+          renderActionCharges();
+        }
       });
       choices.appendChild(button);
     });
@@ -832,9 +853,10 @@
   }
 
   function transformTileIntoWildLetter(index) {
-    if (!wildLetterMode || !roundActive || wildLetterCharges <= 0 || isPowerActionLocked() || !Number.isInteger(index) || index < 0 || index >= tiles.length || !wildLetterLetter) return false;
+    if (!wildLetterMode || !roundActive || wildLetterCharges <= 0 || isPowerActionLocked() || !Number.isInteger(index) || index < 0 || index >= tiles.length || !wildLetterLetter || usedWildLettersThisRound.has(wildLetterLetter)) return false;
     tiles[index] = { id: `wild-${nextWildLetterId++}`, letter: wildLetterLetter, bonus: 'NO', isWildLetter: true };
     wildLetterCharges -= 1;
+    usedWildLettersThisRound.add(wildLetterLetter);
     wildLetterMode = false;
     const chosenLetter = wildLetterLetter;
     wildLetterLetter = null;
@@ -1118,6 +1140,8 @@
     randomizeCharges = 0;
     randomizeWordProgress = 0;
     wildLetterCharges = selectedRoundPower === 'wild-letter' ? WILD_LETTER_CHARGES_PER_ROUND : 0;
+    usedWildLettersThisRound.clear();
+    wildLetterGesture = null;
     anchorWordCharges = selectedRoundPower === 'anchor-word' ? 1 : 0;
     anchorWordMode = false;
     wildLetterMode = false;
@@ -1574,7 +1598,7 @@
       return;
     }
     if (anchorWordMode && selectedIndices.length >= MAX_CHAIN_TILES) {
-      el('word-feedback').textContent = `Chain limit: ${MAX_CHAIN_TILES} tiles maximum`;
+      el('word-feedback').textContent = `Chain Protect limit: ${MAX_CHAIN_TILES} tiles maximum`;
       return;
     }
     selectedIndices.push(index);
@@ -1591,7 +1615,7 @@
     if (anchorWordMode) {
       if (selectedIndices.length < 2) {
         selectedIndices = []; clearSelectionStyles();
-        el('word-feedback').textContent = 'Chain needs at least two connected tiles';
+        el('word-feedback').textContent = 'Chain Protect needs at least two connected tiles';
         return;
       }
       const anchoredIndices = [...selectedIndices];
@@ -1603,7 +1627,7 @@
       renderBoard();
       renderActionCharges();
       el('current-word').textContent = word;
-      el('word-feedback').textContent = `Chain created · ${anchoredIndices.length} tiles protected while you wait to extend a word`;
+      el('word-feedback').textContent = `Chain Protect created · ${anchoredIndices.length} tiles protected while you wait to extend a word`;
       return;
     }
     if (!wordlistSet.has(word)) {
@@ -1805,7 +1829,7 @@
   }
 
   function updateRoundPowerSelection() {
-    const labels = { 'wild-letter': 'Wild Letter · Transform a tile into any letter worth 1 point · 3 charges.', 'anchor-word': `Chain · Protect 2–${MAX_CHAIN_TILES} connected tiles while waiting for letters like S, ER, or ING · 1 charge.` };
+    const labels = { 'wild-letter': 'Wild Letter · Transform a tile into an unused letter worth 1 point · 3 charges.', 'anchor-word': `Chain Protect · Protect 2–${MAX_CHAIN_TILES} connected tiles while waiting for letters like S, ER, or ING to extend a word · 1 charge.` };
     document.querySelectorAll('[data-round-power]').forEach((button) => {
       const isSelected = button.dataset.roundPower === selectedRoundPower;
       button.classList.toggle('is-selected', isSelected);
@@ -1892,15 +1916,15 @@
       if (anchorWordMode) {
         anchorWordMode = false; selectedIndices = []; isSelecting = false; clearSelectionStyles();
         board.querySelectorAll('.power-target-hover').forEach((tile) => tile.classList.remove('power-target-hover'));
-        el('word-feedback').textContent = 'Chain selection cancelled';
+        el('word-feedback').textContent = 'Chain Protect selection cancelled';
       } else if (roundActive && anchorWordCharges > 0 && !isPowerActionLocked()) {
         cancelPowerModes(); anchorWordMode = true; selectedIndices = []; isSelecting = false; clearSelectionStyles();
-        el('word-feedback').textContent = 'Chain: drag across connected tiles to protect them';
+        el('word-feedback').textContent = 'Chain Protect: drag across connected tiles to protect them';
       }
       renderActionCharges(); return;
     }
     if (wildLetterMode) {
-      wildLetterMode = false; wildLetterLetter = null; wildLetterTargetIndex = null;
+      wildLetterMode = false; wildLetterLetter = null; wildLetterTargetIndex = null; wildLetterGesture = null;
       board.querySelectorAll('.power-target-selected, .power-target-hover').forEach((tile) => tile.classList.remove('power-target-selected', 'power-target-hover'));
       el('word-feedback').textContent = 'Wild Letter placement cancelled'; renderActionCharges();
     } else activateWildLetter();
@@ -1941,7 +1965,13 @@
       return;
     }
     if (randomizeMode) { const targetIndex = Number(tile.dataset.index); if (tiles[targetIndex]?.isWildLetter || tiles[targetIndex]?.isAnchored) { el('word-feedback').textContent = tiles[targetIndex]?.isAnchored ? 'Chained tiles cannot be randomized' : 'Wild Letter tiles cannot be randomized'; return; } randomizeTileLetter(targetIndex); return; }
-    if (wildLetterMode) { openWildLetterPicker(Number(tile.dataset.index)); return; }
+    if (wildLetterMode) {
+      // Require a deliberate completed tap on the same tile. Ignore the short
+      // window after activating the power to prevent touch/click gesture bleed.
+      if (Date.now() - wildLetterActivatedAt < 300) return;
+      wildLetterGesture = { pointerId: event.pointerId, index: Number(tile.dataset.index), x: event.clientX, y: event.clientY, moved: false };
+      return;
+    }
     isSelecting = true;
     selectedIndices = [];
     lastPointerX = event.clientX;
@@ -1970,6 +2000,7 @@
       return;
     }
     if ((randomizeMode || swapMode || wildLetterMode) && roundActive && !actionBusy) {
+      if (wildLetterMode && wildLetterGesture && wildLetterGesture.pointerId === event.pointerId && Math.hypot(event.clientX - wildLetterGesture.x, event.clientY - wildLetterGesture.y) > WILD_LETTER_TAP_MOVE_THRESHOLD) wildLetterGesture.moved = true;
       const targetIndex = tileIndexFromPoint(event.clientX, event.clientY);
       board.querySelectorAll('.power-target-hover').forEach((tile) => tile.classList.remove('power-target-hover'));
       if (targetIndex >= 0) {
@@ -2017,6 +2048,15 @@
         useBombAt(target.row, target.col);
       } else if (!isCancellation && target) {
         el('word-feedback').textContent = 'Bomb cancelled · release closer to the highlighted target';
+      }
+      return;
+    }
+    if (wildLetterGesture && event && event.pointerId === wildLetterGesture.pointerId) {
+      const gesture = wildLetterGesture;
+      wildLetterGesture = null;
+      const releaseIndex = tileIndexFromPoint(event.clientX, event.clientY);
+      if (event.type !== 'pointercancel' && wildLetterMode && !gesture.moved && releaseIndex === gesture.index) {
+        openWildLetterPicker(gesture.index);
       }
       return;
     }
