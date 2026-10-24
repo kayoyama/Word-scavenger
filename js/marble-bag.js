@@ -19,6 +19,7 @@
   // This is configurable here and should be tuned from gameplay simulations later.
   const MIN_BONUS_TILES = 5;
   const MAX_BONUS_TILES = 10;
+  const MAX_LETTER_COPIES = 4;
 
   function makeEntries(counts) {
     const entries = [];
@@ -95,7 +96,7 @@
       const safeBoard = Array.isArray(board) ? board : [];
       const metrics = {
         vowels: 0, consonants: 0, uncommon: 0, bonus: 0, normal: 0,
-        emptyAfterDraw: 0, occupied: 0
+        emptyAfterDraw: 0, occupied: 0, letterCounts: Object.create(null)
       };
       safeBoard.forEach((tile, index) => {
         if (index === targetIndex) return; // target tile is being replaced/created
@@ -105,6 +106,7 @@
         }
         metrics.occupied += 1;
         const letter = String(tile.letter || '').toUpperCase();
+        if (!tile.isWildLetter && /^[A-Z]$/.test(letter)) metrics.letterCounts[letter] = (metrics.letterCounts[letter] || 0) + 1;
         if (VOWELS.has(letter)) metrics.vowels += 1;
         else if (/^[A-Z]$/.test(letter)) {
           metrics.consonants += 1;
@@ -130,10 +132,29 @@
         category = bags.letterCategory.draw();
       }
 
+      function drawUnderLetterCap(bag) {
+        // Prefer an eligible entry without consuming rejected letters. If every
+        // remaining entry would exceed the soft cap, allow a safe fallback draw.
+        const eligible = [];
+        bag.entries.forEach((value, index) => {
+          if ((info.letterCounts[value] || 0) < MAX_LETTER_COPIES) eligible.push(index);
+        });
+        if (bag.entries.length === 0) bag.refill();
+        const refreshedEligible = [];
+        bag.entries.forEach((value, index) => {
+          if ((info.letterCounts[value] || 0) < MAX_LETTER_COPIES) refreshedEligible.push(index);
+        });
+        if (refreshedEligible.length) {
+          const chosen = refreshedEligible[Math.floor(random() * refreshedEligible.length)];
+          bag.draws += 1;
+          return { letter: bag.entries.splice(chosen, 1)[0], constrained: false };
+        }
+        return { letter: bag.draw(), constrained: true };
+      }
       if (category === 'V') {
-        const letter = bags.vowelLetters.draw();
-        lastDraw.letter = { category: 'vowel', categorySource, group: null, groupSource: null, letter };
-        return letter;
+        const draw = drawUnderLetterCap(bags.vowelLetters);
+        lastDraw.letter = { category: 'vowel', categorySource, group: null, groupSource: null, letter: draw.letter, letterCapSource: draw.constrained ? 'soft-cap-fallback' : ((info.letterCounts[draw.letter] || 0) >= MAX_LETTER_COPIES - 1 ? 'soft-cap-aware' : 'normal') };
+        return draw.letter;
       }
 
       let group;
@@ -147,8 +168,9 @@
       } else {
         group = bags.consonantGroup.draw();
       }
-      const letter = group === 'uncommon' ? bags.uncommonLetters.draw() : bags.commonLetters.draw();
-      lastDraw.letter = { category: 'consonant', categorySource, group, groupSource, letter };
+      const draw = drawUnderLetterCap(group === 'uncommon' ? bags.uncommonLetters : bags.commonLetters);
+      const letter = draw.letter;
+      lastDraw.letter = { category: 'consonant', categorySource, group, groupSource, letter, letterCapSource: draw.constrained ? 'soft-cap-fallback' : ((info.letterCounts[letter] || 0) >= MAX_LETTER_COPIES - 1 ? 'soft-cap-aware' : 'normal') };
       return letter;
     }
 
@@ -261,7 +283,7 @@
   root.WordMarbleBag = Object.freeze({ createEngine, constants: Object.freeze({
     VOWEL_COUNTS, COMMON_COUNTS, UNCOMMON_COUNTS, BONUS_COUNTS,
     LETTER_MIN_VOWELS, LETTER_MAX_VOWELS, MIN_UNCOMMON_CONSONANTS, MAX_UNCOMMON_CONSONANTS,
-    MIN_BONUS_TILES, MAX_BONUS_TILES
+    MIN_BONUS_TILES, MAX_BONUS_TILES, MAX_LETTER_COPIES
   }) });
   if (typeof module !== 'undefined' && module.exports) module.exports = root.WordMarbleBag;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -5,7 +5,7 @@
   'use strict';
 
   const AMPLIFIER_MULTIPLIERS = Object.freeze({ 3: 1, 4: 1.25, 5: 1.5, 6: 1.75, 7: 2 });
-  const AMPLIFIER_TIME_SECONDS = Object.freeze({ 3: 0, 4: 5, 5: 10, 6: 15, 7: 20 });
+  const AMPLIFIER_TIME_SECONDS = Object.freeze({ 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 });
   const PER_WORD_TIME_CAPS = Object.freeze({ 3: 10, 4: 15, 5: 20, 6: 25, 7: 30 });
   const BONUS_TIME_SECONDS = Object.freeze({ NO: 0, '2LS': 2, '3LS': 3, '2WS': 2, '3WS': 3 });
 
@@ -51,7 +51,7 @@
   function calculateTimeAward(tiles, indices, secondsLeft, maxTimeSeconds) {
     const extra = indices.reduce((sum, index) => sum + (BONUS_TIME_SECONDS[tiles[index].bonus] || 0), 0);
     const tier = tierForLength(indices.length);
-    const amplifierSeconds = indices.length < 3 ? 0 : (AMPLIFIER_TIME_SECONDS[tier] || 0);
+    const amplifierSeconds = 0; // Word Amplifier affects score only; it no longer grants main-timer seconds.
     const requested = 2 + extra + amplifierSeconds;
     const wordCap = indices.length < 3 ? 0 : (PER_WORD_TIME_CAPS[tier] || 30);
     const cappedRequested = Math.min(requested, wordCap);

@@ -25,26 +25,26 @@ const tile = (letter, bonus = 'NO') => ({ letter, bonus });
 // Time rewards are additive, capped per word, then capped by the overall timer.
 {
   const tiles = [tile('A', '3LS'), tile('B', '3WS'), tile('C', '2LS'), tile('D', '2WS')];
-  const result = rules.calculateTimeAward(tiles, [0, 1, 2, 3], 120, 200);
+  const result = rules.calculateTimeAward(tiles, [0, 1, 2, 3], 120, 180);
   assert.equal(result.extra, 10);
-  assert.equal(result.amplifierSeconds, 5);
-  assert.equal(result.requested, 17);
+  assert.equal(result.amplifierSeconds, 0);
+  assert.equal(result.requested, 12);
   assert.equal(result.wordCap, 15);
-  assert.equal(result.added, 15);
-  assert.equal(result.newSecondsLeft, 135);
+  assert.equal(result.added, 12);
+  assert.equal(result.newSecondsLeft, 132);
 }
 {
   const tiles = [tile('A'), tile('B'), tile('C'), tile('D'), tile('E'), tile('F'), tile('G')];
-  const result = rules.calculateTimeAward(tiles, [0, 1, 2, 3, 4, 5, 6], 195, 200);
-  assert.equal(result.cappedRequested, 22);
-  assert.equal(result.added, 5);
-  assert.equal(result.newSecondsLeft, 200);
+  const result = rules.calculateTimeAward(tiles, [0, 1, 2, 3, 4, 5, 6], 175, 180);
+  assert.equal(result.cappedRequested, 2);
+  assert.equal(result.added, 2);
+  assert.equal(result.newSecondsLeft, 177);
 }
 {
   const tiles = [tile('A'), tile('B'), tile('C')];
-  const result = rules.calculateTimeAward(tiles, [0, 1, 2], 200, 200);
+  const result = rules.calculateTimeAward(tiles, [0, 1, 2], 180, 180);
   assert.equal(result.added, 0);
-  assert.equal(result.newSecondsLeft, 200);
+  assert.equal(result.newSecondsLeft, 180);
 }
 
 // Combo rewards affect only the combo deadline and score, never the main timer.

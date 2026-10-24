@@ -668,3 +668,29 @@ The history available for this update includes the changelog source, a Classic M
 
 ### Performance / Refactoring
 - Reused the existing board rendering, tile-flip feedback, and round-power selection architecture for Wild Letter instead of introducing a separate board system.
+
+## v3.01 — 2026-10-25 — Wild Letter gesture isolation
+
+### Fixed
+- Strengthened Wild Letter activation protection with a 450 ms guard to prevent the power-activation gesture from bleeding into tile targeting.
+- Wild Letter placement now captures the pointer and opens the letter picker only after a completed `pointerup` on the same tile, with no movement beyond the existing 12 px threshold.
+- Preserved cancellation behavior, charge handling, unique-per-round letter rules, scoring, and existing tile interactions.
+
+### Verification
+- JavaScript syntax check passed for `js/game.js`.
+- Automated test suites passed for Wild Letter UI/mobile targeting, scoring rules, board logic, Anchor Word, and Marble Bag behavior.
+- Interactive browser and Android touch verification remains necessary to confirm the reported issue is resolved on-device.
+
+
+## v3.02 — 2026-10-25 — Marble Bag balance, timer tuning, and pause preview
+
+### Changed
+- Added a soft cap of four copies per ordinary letter on the projected 25-tile board. Eligible remaining entries are preferred; a fallback draw prevents generation from stalling when no eligible letter remains. Wild Letter tiles are excluded from the copy count.
+- Removed Word Amplifier additional main-timer rewards while preserving the existing length-based score multipliers.
+- Restored the main timer maximum to 180 seconds; the starting timer remains 120 seconds. Ordinary valid-word and bonus-tile time rewards remain.
+- Expanded the pause-screen Marble Bag inspector into a read-only Board & Marble Bag preview with board composition, remaining entries, replenishment counts, and probabilities calculated from each bag’s remaining entries.
+
+### Verification
+- Updated scoring-rule tests for the reduced time rewards and 180-second cap.
+- Added a Marble Bag regression test for the ordinary-letter soft cap.
+- Automated test, syntax, and ZIP checks are recorded with the v3.02 package. Browser visual and gameplay testing remain required.

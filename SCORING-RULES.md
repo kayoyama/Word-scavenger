@@ -13,23 +13,23 @@ This document is the single source of truth for scoring and time calculations in
 | Word length | Score multiplier | Additional main-timer reward | Maximum total time reward for the word |
 |---|---:|---:|---:|
 | 3 letters | ×1.0 | +0 s | 10 s |
-| 4 letters | ×1.25 | +5 s | 15 s |
-| 5 letters | ×1.5 | +10 s | 20 s |
-| 6 letters | ×1.75 | +15 s | 25 s |
-| 7+ letters | ×2.0 | +20 s | 30 s |
+| 4 letters | ×1.25 | +0 s | 15 s |
+| 5 letters | ×1.5 | +0 s | 20 s |
+| 6 letters | ×1.75 | +0 s | 25 s |
+| 7+ letters | ×2.0 | +0 s | 30 s |
 
 The score breakdown is additive: `base letter/word-bonus score + Word Amplifier bonus + Chrono Combo score reward = total points earned for the accepted word`. The amplifier bonus is the rounded final word score minus the pre-amplifier subtotal. Combo score is tracked separately and is never multiplied by Word Amplifier.
 
 ## Main timer rewards
 
 - Starting timer: 120 seconds.
-- Overall timer maximum: 200 seconds.
+- Overall timer maximum: 180 seconds.
 - Every accepted valid word requests +2 seconds.
 - Each used `2LS` tile adds +2 seconds; `3LS` adds +3 seconds; `2WS` adds +2 seconds; `3WS` adds +3 seconds.
-- Add the word-length Word Amplifier time reward shown above.
-- Sum the applicable rewards, apply the per-word cap for that word length, then apply the overall 200-second cap.
+- Word Amplifier is score-only and grants no additional main-timer seconds.
+- Sum the valid-word reward and applicable bonus-tile rewards, apply the existing per-word cap for that word length, then apply the overall 180-second cap.
 - The game records `timeBonusSeconds` as the actual number of seconds added to the main timer after both caps, accumulated across the round. It is not the current timer value and is not the Chrono Combo countdown reward.
-- A word that would exceed the overall timer cap records only the seconds actually added. If the timer is already at 200 seconds, that word adds zero seconds to `timeBonusSeconds`.
+- A word that would exceed the overall timer cap records only the seconds actually added. If the timer is already at 180 seconds, that word adds zero seconds to `timeBonusSeconds`.
 
 ## Chrono Combo
 
@@ -56,6 +56,12 @@ The score breakdown is additive: `base letter/word-bonus score + Word Amplifier 
 - **Words of 6 or more letters do not count toward either the Bomb 10-word or Swap 15-word milestone.** They can award an immediate long-word charge when they meet that power's threshold, but they do not advance or reset the regular milestone progress.
 - Regular milestone progress is tracked independently for Bomb and Swap and advances only on accepted valid words shorter than 6 letters.
 - A single accepted word awards at most one charge to each power. A 6-letter word can award Bomb but does not award Swap; a 7+ letter word can award one charge to each power. If a power is already at its 3-charge cap, it earns no charge and its milestone progress remains reset while full.
+
+## Marble Bag letter balance
+
+- During ordinary tile generation, the engine prefers letters that would not exceed four copies of the same ordinary letter on the projected board.
+- Wild Letter tiles are excluded from this ordinary-letter count.
+- This is a soft cap: if no eligible letter remains in the selected letter sub-bag, a fallback draw is allowed so generation cannot stall. Letter and bonus bags remain independent and depleted bags replenish only when a draw is requested.
 
 ## Deterministic verification
 

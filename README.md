@@ -28,7 +28,7 @@ If your browser restricts local files, run a simple local web server from this f
 - Uses pointer input for mouse and touch screens.
 - Uses a `Set` for faster dictionary membership checks.
 - Stops scoring when the timer reaches zero.
-- Uses the current authoritative scoring and timer rules in `SCORING-RULES.md`: +2 seconds per accepted word, +2/+3 seconds for 2LS/3LS and +2/+3 seconds for 2WS/3WS, plus the length-based Word Amplifier time reward, subject to per-word and 200-second overall caps.
+- Uses the current authoritative scoring and timer rules in `SCORING-RULES.md`: +2 seconds per accepted word, +2/+3 seconds for 2LS/3LS and +2/+3 seconds for 2WS/3WS, with no Word Amplifier time reward, subject to the existing per-word caps and a 180-second overall cap.
 - Shows an animated time-bonus indicator and timer pulse after a valid word.
 - Shows end-of-round words found, longest word, highest-scoring word, average points per word, and a comparison against the previous personal best.
 - Shows the personal-best score and best-word details on the start screen.
@@ -96,7 +96,7 @@ Replacement tiles now flip in a staggered sequence (55 ms between flip starts; 1
 
 ## Rebalancing — 2026-10-20
 
-- Increased the main timer cap from 180 to 200 seconds; round start remains 120 seconds.
+- Restored the main timer cap to 180 seconds; round start remains 120 seconds.
 - Updated used-tile main timer rewards to 2LS +2s, 3LS +3s, 2WS +2s, and 3WS +3s.
 - Added Word Amplifier time rewards of +0/+5/+10/+15/+20 seconds for 3/4/5/6/7+ letter words, additive to the base valid-word and used bonus-tile rewards.
 - Set Chrono Combo to a 7-second initial countdown and 20-second cap.
@@ -143,3 +143,9 @@ These tests validate pure logic and source-level invariants. They do not substit
 - Letters successfully assigned to Wild Letter tiles cannot be selected again during that round, even if the tile is later consumed or destroyed. The available-letter set resets at the start of each new round.
 - On touch devices, Wild Letter targeting requires a completed tap on the same tile with movement under 12 CSS pixels. A short activation guard prevents a button gesture from bleeding into tile targeting.
 - Responsive styles center the middle power label and icon when the name wraps on narrow screens.
+
+
+## v3.02 balancing updates
+- Added a soft maximum of four copies of any ordinary letter on the projected board; Wild Letters do not count toward this cap.
+- Removed Word Amplifier time rewards while preserving its score multipliers; main timer cap is 180 seconds.
+- Expanded the pause-screen read-only Board & Marble Bag preview with board composition, remaining-bag counts, and per-entry probabilities.

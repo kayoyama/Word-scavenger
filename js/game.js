@@ -6,7 +6,7 @@
   'use strict';
 
   const ROUND_SECONDS = 120;
-  const MAX_TIME_SECONDS = 200;
+  const MAX_TIME_SECONDS = 180;
   const CHRONO_COMBO_WINDOW_MS = 7000;
   const CHRONO_COMBO_MAX_SECONDS = 20;
   const SIZE = 5;
@@ -57,6 +57,7 @@
   let wildLetterGesture = null;
   let wildLetterActivatedAt = 0;
   const WILD_LETTER_TAP_MOVE_THRESHOLD = 12;
+  const WILD_LETTER_ACTIVATION_GUARD_MS = 450;
   let anchorWordMode = false;
   let anchorWordCharges = 0;
   let nextWildLetterId = 1;
@@ -1938,7 +1939,14 @@
     const last = marbleBag.getLastDraw();
     const lastEl = el('bag-inspector-last-draw');
     const contentEl = el('bag-inspector-content');
+    const summaryEl = el('bag-inspector-board-summary');
     if (!lastEl || !contentEl) return;
+    if (summaryEl) {
+      const counts = {}; let vowels = 0, uncommon = 0, bonusTiles = 0, normalTiles = 0, occupied = 0, wilds = 0;
+      (tiles || []).forEach((tile) => { if (!tile) return; occupied += 1; const letter = String(tile.letter || '').toUpperCase(); if (tile.isWildLetter) wilds += 1; else if (/^[A-Z]$/.test(letter)) counts[letter] = (counts[letter] || 0) + 1; if ('AEIOU'.includes(letter)) vowels += 1; if (['P','B','F','W','Y','V','K','Q','J','X','Z'].includes(letter) && !tile.isWildLetter) uncommon += 1; if (tile.bonus && tile.bonus !== 'NO' && !tile.isWildLetter) bonusTiles += 1; else normalTiles += 1; });
+      const crowded = Object.entries(counts).filter(([, count]) => count > 1).sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0]));
+      summaryEl.innerHTML = `<h4>Current board</h4><div class="board-summary-metrics"><span><strong>${occupied}/25</strong><small>Tiles</small></span><span><strong>${vowels}</strong><small>Vowels</small></span><span><strong>${uncommon}</strong><small>Uncommon</small></span><span><strong>${bonusTiles}</strong><small>Bonus tiles</small></span><span><strong>${normalTiles}</strong><small>Normal tiles</small></span><span><strong>${25-occupied}</strong><small>Empty</small></span><span><strong>${wilds}</strong><small>Wild Letters</small></span></div><p><strong>Letter soft cap:</strong> ${marbleBagFactory.constants.MAX_LETTER_COPIES} copies per ordinary letter. Wild Letters are excluded. ${crowded.length ? `Repeated letters: ${crowded.map(([letter,count]) => `${letter} ×${count}`).join(', ')}` : 'No repeated ordinary letters.'}</p>`;
+    }
     const letter = last.letter;
     const bonus = last.bonus;
     const forcedLetter = Boolean(letter && (letter.categorySource === 'board-balance' || letter.groupSource === 'board-balance'));
@@ -1947,13 +1955,20 @@
       if (!item) return 'No draw recorded yet.';
       return Object.entries(item).map(([key, value]) => `${key}: ${value == null ? '—' : value}`).join(' · ');
     };
-    const letterDecision = !letter ? 'No letter draw recorded yet.' : `${letter.categorySource === 'board-balance' ? 'Vowel/consonant balance forced the category; top-level letter category bag bypassed.' : 'Letter category selected naturally from the category bag.'} ${letter.groupSource === 'board-balance' ? 'Common/uncommon safeguard forced the consonant subgroup; subgroup selector bypassed.' : (letter.category === 'consonant' ? 'Consonant subgroup selected naturally.' : 'No consonant subgroup draw needed.')}`;
+    const letterDecision = !letter ? 'No letter draw recorded yet.' : `${letter.categorySource === 'board-balance' ? 'Vowel/consonant balance forced the category; top-level letter category bag bypassed.' : 'Letter category selected naturally from the category bag.'} ${letter.groupSource === 'board-balance' ? 'Common/uncommon safeguard forced the consonant subgroup; subgroup selector bypassed.' : (letter.category === 'consonant' ? 'Consonant subgroup selected naturally.' : 'No consonant subgroup draw needed.')} ${letter.letterCapSource === 'soft-cap-aware' ? 'The four-copy soft cap influenced eligible letter selection.' : letter.letterCapSource === 'soft-cap-fallback' ? 'No eligible letter remained under the soft cap; fallback draw used to prevent a stalled draw.' : 'The letter cap did not constrain this draw.'}`;
     const bonusDecision = !bonus ? 'No bonus draw recorded yet.' : (bonus.categorySource === 'board-balance' ? 'Normal/bonus balance forced the category; top-level bonus category bag bypassed.' : 'Normal/bonus category selected naturally from the category bag.');
     lastEl.innerHTML = `<h4>Most recent draw decision</h4><p><strong>Letter:</strong> ${escapeHtml(describe(letter))}</p><p><strong>Letter draw path:</strong> ${escapeHtml(letterDecision)}</p><p><strong>Bonus:</strong> ${escapeHtml(describe(bonus))}</p><p><strong>Bonus draw path:</strong> ${escapeHtml(bonusDecision)}</p>`;
     const labels = {
       letterCategory: 'Letter category bag (V / C)', vowelLetters: 'Vowel letter bag', consonantGroup: 'Common / uncommon selector', commonLetters: 'Common consonants', uncommonLetters: 'Uncommon consonants', bonusCategory: 'Bonus category bag (NO / BONUS)', normalTiles: 'Normal tile bag', bonusTypes: 'Bonus type bag'
     };
-    contentEl.innerHTML = Object.entries(contents).map(([key, bag]) => {
+    const probabilityCard = (title, bag) => {
+      const total = bag.entries.length;
+      const frequencies = bag.frequencies;
+      const rows = Object.entries(frequencies).sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0])).map(([value,count]) => `<span class="bag-probability-chip"><strong>${escapeHtml(value)}</strong> ${total ? (count / total * 100).toFixed(1) : '0.0'}%</span>`).join(' ');
+      return `<section class="live-bag-card"><div class="live-bag-title"><h4>${title}</h4><strong>${total} remaining</strong></div><p class="live-bag-meta">Percentages are conditional on drawing from this specific remaining bag; the category and balance rules can constrain which bag is used. Entries are drawn without replacement. An empty bag replenishes on the next requested draw.</p><div class="live-bag-frequencies">${rows || '<em>Empty — next draw replenishes this bag.</em>'}</div></section>`;
+    };
+    const probabilities = [probabilityCard('Next letter category probabilities', contents.letterCategory), probabilityCard('Next consonant group probabilities', contents.consonantGroup), probabilityCard('Next letter probabilities — vowel bag', contents.vowelLetters), probabilityCard('Next letter probabilities — common consonants', contents.commonLetters), probabilityCard('Next letter probabilities — uncommon consonants', contents.uncommonLetters), probabilityCard('Next bonus category probabilities', contents.bonusCategory), probabilityCard('Next bonus type probabilities', contents.bonusTypes)];
+    contentEl.innerHTML = probabilities.join('') + Object.entries(contents).map(([key, bag]) => {
       const remainingText = bag.entries.length ? bag.entries.map((entry) => escapeHtml(String(entry))).join(' · ') : 'EMPTY — next requested draw will replenish this bag';
       return `<section class="live-bag-card"><div class="live-bag-title"><h4>${escapeHtml(labels[key] || key)}</h4><strong>${bag.remaining} / ${bag.size}</strong></div><p class="live-bag-meta">Draws: ${bag.draws} · Replenishments: ${bag.replenishments}</p><div class="live-bag-frequencies">${formatBagFrequencies(bag.frequencies)}</div><details><summary>Show remaining entries (${bag.remaining})</summary><p class="live-bag-entry-list">${remainingText}</p></details></section>`;
     }).join('');
@@ -2068,8 +2083,12 @@
     if (wildLetterMode) {
       // Require a deliberate completed tap on the same tile. Ignore the short
       // window after activating the power to prevent touch/click gesture bleed.
-      if (Date.now() - wildLetterActivatedAt < 300) return;
+      if (Date.now() - wildLetterActivatedAt < WILD_LETTER_ACTIVATION_GUARD_MS) return;
+      // Treat Wild Letter placement as its own complete pointer gesture. Capture
+      // the pointer so release is observed even if the finger drifts off the tile.
+      // Never let this gesture fall through into ordinary word selection.
       wildLetterGesture = { pointerId: event.pointerId, index: Number(tile.dataset.index), x: event.clientX, y: event.clientY, moved: false };
+      board.setPointerCapture?.(event.pointerId);
       return;
     }
     isSelecting = true;
@@ -2155,7 +2174,9 @@
       const gesture = wildLetterGesture;
       wildLetterGesture = null;
       const releaseIndex = tileIndexFromPoint(event.clientX, event.clientY);
-      if (event.type !== 'pointercancel' && wildLetterMode && !gesture.moved && releaseIndex === gesture.index) {
+      const releasedOnSameTile = releaseIndex === gesture.index;
+      const completedTap = event.type === 'pointerup' && !gesture.moved && releasedOnSameTile;
+      if (completedTap && wildLetterMode && roundActive && !actionBusy) {
         openWildLetterPicker(gesture.index);
       }
       return;

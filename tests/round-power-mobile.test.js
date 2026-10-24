@@ -18,7 +18,9 @@ assert.match(game, /usedWildLettersThisRound\.has\(wildLetterLetter\)/, 'transfo
 assert.match(game, /const WILD_LETTER_TAP_MOVE_THRESHOLD = 12/, 'Wild Letter has a small touch movement threshold');
 assert.match(game, /wildLetterGesture = \{ pointerId: event\.pointerId, index: Number\(tile\.dataset\.index\)/, 'tile target is recorded on pointer down rather than selected immediately');
 assert.match(game, /releaseIndex === gesture\.index/, 'Wild Letter picker requires release on the same tile');
-assert.match(game, /Date\.now\(\) - wildLetterActivatedAt < 300/, 'brief activation guard prevents touch gesture bleed');
+assert.match(game, /const WILD_LETTER_ACTIVATION_GUARD_MS = 450/, 'activation guard prevents the activating gesture from bleeding into tile targeting');
+assert.match(game, /event\.type === 'pointerup' && !gesture\.moved && releasedOnSameTile/, 'Wild Letter requires a completed pointerup on the same tile');
+assert.match(game, /board\.setPointerCapture\?\.\(event\.pointerId\)/, 'Wild Letter tracks the complete gesture even if the pointer drifts off the tile');
 assert.match(game, /wildLetterGesture\.moved = true/, 'movement beyond threshold cancels tap targeting');
 for (const file of ['css/style.css', 'css/style2.css']) {
   const css = fs.readFileSync(path.join(root, file), 'utf8');

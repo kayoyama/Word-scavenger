@@ -71,6 +71,21 @@ function makeBoard(fill = null) { return Array.from({ length: 25 }, () => fill ?
   assert.notEqual(engine.drawBonus(board, 24), 'NO', 'four bonuses with no future slots force a bonus');
 }
 
+
+// Soft cap prefers eligible ordinary letters when a letter already appears four times.
+{
+  const engine = marbleBag.createEngine({ random: () => 0.37 });
+  const board = makeBoard({ letter: 'R', bonus: 'NO' });
+  for (let i = 0; i < 12; i += 1) board[i] = { letter: 'A', bonus: 'NO' };
+  for (let i = 12; i < 16; i += 1) board[i] = { letter: 'T', bonus: 'NO' };
+  board[16] = { letter: 'P', bonus: 'NO' };
+  board[17] = { letter: 'K', bonus: 'NO' };
+  board[24] = null;
+  const drawn = engine.drawLetter(board, 24);
+  assert.notEqual(drawn, 'T', 'a fifth T should be avoided when an eligible consonant exists');
+  assert.notEqual(engine.getLastDraw().letter.letterCapSource, 'soft-cap-fallback');
+}
+
 // A depleted sub-bag replenishes only when the next draw is requested.
 {
   const engine = marbleBag.createEngine({ random: () => 0.37 });

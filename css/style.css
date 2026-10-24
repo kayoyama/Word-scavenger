@@ -939,3 +939,11 @@ body:not(.theme-style2) .wild-letter-tile {
 .live-bag-card summary { cursor: pointer; color: #7ed5ff; }
 .live-bag-entry-list { max-height: 130px; overflow: auto; line-height: 1.6; color: #d7e6f8; }
 @media (max-width: 560px) { .pause-card:has(.bag-inspector:not([hidden])) { padding: 16px 12px; } .bag-inspector-heading { align-items: flex-start; flex-wrap: wrap; } }
+.bag-inspector-board-summary { border: 1px solid rgba(120,170,220,.32); border-radius: 10px; background: rgba(3,17,36,.72); padding: 12px; margin: 10px 0; }
+.bag-inspector-board-summary h4 { margin: 0 0 10px; }
+.board-summary-metrics { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 7px; }
+.board-summary-metrics span { display: flex; flex-direction: column; gap: 2px; padding: 8px; border-radius: 8px; background: rgba(120,170,220,.10); }
+.board-summary-metrics strong { font-size: 1.1rem; }
+.board-summary-metrics small { color: #a9c6e8; font-size: .75rem; }
+.bag-probability-chip { display: inline-flex; gap: 4px; padding: 5px 7px; margin: 2px; border-radius: 6px; background: rgba(120,170,220,.12); font-size: .8rem; }
+@media (max-width: 560px) { .board-summary-metrics { grid-template-columns: repeat(3, minmax(0,1fr)); } }
