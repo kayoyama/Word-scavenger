@@ -20,6 +20,8 @@ assert.match(game, /wildLetterGesture = \{ pointerId: event\.pointerId, index: N
 assert.match(game, /releaseIndex === gesture\.index/, 'Wild Letter picker requires release on the same tile');
 assert.match(game, /const WILD_LETTER_ACTIVATION_GUARD_MS = 450/, 'activation guard prevents the activating gesture from bleeding into tile targeting');
 assert.match(game, /event\.type === 'pointerup' && !gesture\.moved && releasedOnSameTile/, 'Wild Letter requires a completed pointerup on the same tile');
+assert.match(game, /choices\.addEventListener\('pointerdown',[\s\S]*?pickerChoicePointerDown = true/, 'Wild Letter picker records a fresh pointer-down on an enabled choice');
+assert.match(game, /if \(!pickerChoicePointerDown\) return/, 'a trailing click cannot select a letter before a fresh picker pointer-down');
 assert.match(game, /board\.setPointerCapture\?\.\(event\.pointerId\)/, 'Wild Letter tracks the complete gesture even if the pointer drifts off the tile');
 assert.match(game, /wildLetterGesture\.moved = true/, 'movement beyond threshold cancels tap targeting');
 for (const file of ['css/style.css', 'css/style2.css']) {

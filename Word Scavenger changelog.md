@@ -1,3 +1,18 @@
+## v3.06 — 2026-10-26 — Prevent Wild Letter picker gesture bleed-through
+
+### Fixed
+- Prevented the completed board-tile tap from accidentally choosing a letter in the Wild Letter picker on touch devices. A letter choice is now accepted only after a fresh pointer-down on an enabled letter button in the picker.
+- Preserved the existing Wild Letter targeting safeguards: the power activation gesture cannot select a tile, targeting requires a completed tap on the same tile within the 12 CSS-pixel movement threshold and after the 450 ms activation guard, and the gesture cannot fall through into ordinary word selection.
+- Kept the main timer and Chrono Combo running while the player chooses a target tile. Both timers pause only when the letter picker opens and resume afterward only if they were running before it opened.
+
+### Verification
+- `node --check js/game.js` — passed.
+- `node --test tests/*.test.js` — all six test suites passed, including the new source regression guard.
+- Source-level regression coverage verifies that a fresh picker pointer-down is required before accepting a letter choice.
+- Browser/mobile touch verification remains outstanding; automated source tests do not prove the issue is resolved on every device.
+
+---
+
 ## v3.05 — 2026-10-26 — Restore board letter selection
 
 ### Fixed

@@ -62,6 +62,14 @@ The score breakdown is additive: `base letter/word-bonus score + Word Amplifier 
 - Wild Letter tiles are excluded from this ordinary-letter count.
 - This is a soft cap: if no eligible letter remains in the selected letter sub-bag, a fallback draw is allowed so generation cannot stall. Letter and bonus bags remain independent and depleted bags replenish only when a draw is requested.
 
+
+## Wild Letter selector and timer policy
+
+- Activating Wild Letter arms the power but does not select a board tile. The player must perform a separate, completed pointer gesture that starts and ends on the same tile, stays within the 12 CSS-pixel movement threshold, and occurs after the 450 ms activation guard.
+- The target-tile gesture must not also choose a letter in the picker. Letter selection requires a fresh pointer-down on an enabled picker letter button before its click is accepted.
+- The main timer and Chrono Combo continue while the player is choosing a target tile. They pause when the letter picker opens and resume only if each timer was running before the picker opened. Cancelling the picker does not spend a Wild Letter charge or reserve a letter.
+- Wild Letter letters are unique within a round. A letter is reserved only after successful creation, remains unavailable if its tile is later consumed or destroyed, and becomes available again in the next round.
+
 ## Deterministic verification
 
 Run `node tests/scoring-rules.test.js` from the project root. This checks scoring arithmetic, word-length tiers, additive time rewards, per-word and overall caps, combo progression/expiry, charge milestone exclusion/progress, and static animation-lock/timer-policy guards. These tests do not replace interactive browser regression testing.

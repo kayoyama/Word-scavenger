@@ -43,3 +43,6 @@ Temporary live Marble Bag inspector update
 
 
 v3.05 hotfix (2026-10-26): Restored board tile interaction by fixing an over-broad pointer guard. Board tiles are buttons, so the previous guard accidentally rejected all board tile pointer-down events. Automated syntax and test suites passed; live browser/device testing remains pending.
+
+
+v3.06 hotfix (2026-10-26): Added a picker-level fresh pointer-down gate to prevent the Wild Letter target-tile tap's trailing click from choosing a letter. Timers continue during tile targeting and pause only while the letter picker is open, resuming according to their prior running state. Updated changelog and authoritative scoring/timer rules to restore the v3.05 source-aligned timer rewards and 180-second cap. All six Node test suites pass; live browser/mobile touch testing remains pending.

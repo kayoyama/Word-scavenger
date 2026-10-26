@@ -1,3 +1,17 @@
+Word Scavenger — Wild Letter selector touch fix (2026-10-26)
+
+Changes
+- Added a picker-level pointer-down gate: a letter button's click is ignored until the player begins a fresh pointer gesture on an enabled letter choice. This prevents the trailing click from the board-tile tap that opened the picker from selecting a letter accidentally on touch devices.
+- Kept Wild Letter activation and target selection as separate gestures, with same-tile release and movement-threshold checks.
+- Main timer and Chrono Combo continue during target-tile selection; they pause only while the letter picker is open and resume according to their prior running state.
+
+Validation
+- `node --check js/game.js` — passed.
+- All six Node test suites passed, including the new pointer-down source guard.
+- Browser/device touch validation remains outstanding.
+
+---
+
 Word Scavenger — Rotate/Randomize interaction fix
 
 Changes
