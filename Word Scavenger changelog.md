@@ -1,19 +1,3 @@
-## 2026-10-27 — Temporary raw touch diagnostic build
-
-### Added
-- Added a separate red overlay that draws raw pointer coordinates from pointer-down through pointer-up/cancel and remains visible for two seconds after release.
-- Added JSON export of raw pointer samples, timestamps, pointer metadata, board-relative coordinates, and independently captured selection indices.
-- Added `TOUCH-DIAGNOSTIC-TESTING.md` with testing and export instructions.
-
-### Preserved
-- This diagnostic build is based on v3.06 and does not alter tile-selection, adjacency, scoring, power, or animation logic.
-- Bumped the service-worker cache from v11 to v12 so the diagnostic assets are refreshed.
-
-### Verification
-- JavaScript syntax and existing Node regression suites should be run for this package. Browser and Android visual/touch verification remain required.
-
----
-
 ## v3.06 — 2026-10-26 — Prevent Wild Letter picker gesture bleed-through
 
 ### Fixed
