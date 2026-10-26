@@ -864,6 +864,11 @@
     overlay.className = 'modal-overlay wild-letter-picker-overlay';
     overlay.innerHTML = '<section class="tutorial-card wild-letter-picker" role="dialog" aria-modal="true" aria-labelledby="wild-letter-picker-title"><p class="eyebrow">WILD LETTER</p><h2 id="wild-letter-picker-title">Choose a letter</h2><p>The selected tile will become this letter and be worth 1 point. This uses one charge. Each letter can be used only once per round; used letters are disabled.</p><div class="wild-letter-choices" role="group" aria-label="Choose wildcard letter"></div><div class="tutorial-actions"><button type="button" class="menu-button" data-wild-cancel>Cancel</button></div></section>';
     const choices = overlay.querySelector('.wild-letter-choices');
+        // Require a new picker touch so the tile tap’s trailing mobile click cannot choose a letter.
+    let pickerChoicePointerDown = false;
+    choices.addEventListener('pointerdown', (event) => {
+      if (event.target.closest('.wild-letter-choice:not(:disabled)')) pickerChoicePointerDown = true;
+    });
     'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach((letter) => {
       const button = document.createElement('button');
       const alreadyUsed = usedWildLettersThisRound.has(letter);
@@ -874,6 +879,7 @@
       button.setAttribute('aria-label', alreadyUsed ? `${letter}, already used this round` : `Choose ${letter}`);
       if (alreadyUsed) button.title = 'Already used this round';
       button.addEventListener('click', () => {
+                if (!pickerChoicePointerDown) return;
         if (usedWildLettersThisRound.has(letter)) return;
         wildLetterLetter = letter;
         const targetIndex = wildLetterTargetIndex;
