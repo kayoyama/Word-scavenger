@@ -1,0 +1,45 @@
+WORD SCAVENGER V3 — MARBLE BAG BUILD
+
+What changed
+- Added js/marble-bag.js as a separate in-memory bag engine.
+- Integrated true draw-without-replacement bags and independent replenishment.
+- Added projected-board safeguards for vowel/consonant, common/uncommon, and normal/bonus balance.
+- Connected initial board generation, ordinary refills, Bomb replacements, Randomize, and Long Word Bonus to the new rules.
+- Preserved the existing three-flip Randomize animation; only the final replacement consumes a letter-bag draw.
+- Long Word Bonus uses weighted assignment with replacement and does not consume bonus-bag entries. Wild Letter tiles remain unbonused.
+- Added MARBLE-BAG-SPEC.md and tests/marble-bag.test.js.
+
+Bag visualization
+- Open marble-bag-preview.html through VS Code Live Server to inspect the real engine.
+- Use “Draw next tile” to step through generation and inspect remaining entries and the latest draw path.
+- Use “Generate full board” to test the 5x5 safeguards.
+- Use “Reset bags and board” to start a fresh simulation.
+
+Validation performed
+- JavaScript syntax checks passed for the Marble Bag engine and integration files.
+- All existing tests/*.test.js scripts passed, including the new Marble Bag tests.
+- A 10,000-board simulation produced no violations of the initial vowel (8–12), uncommon consonant (2–5), or bonus tile (5–10) bounds.
+
+Notes
+- Bag state is in memory and resets for each new round; no localStorage persistence was added.
+- The bonus-tile tolerance of 5–10 per 25-tile board is an initial tuning range, not a permanently fixed balance target.
+
+Diagnostic snapshot update
+- The active game now writes a read-only diagnostic snapshot to localStorage under wordScavengerMarbleBagDebugSnapshot.
+- marble-bag-preview.html automatically displays the most recent game board, bag counts, and last draw after page load/refresh when both pages use the same origin (for example, the same VS Code Live Server host/port).
+- Use “Reload latest game snapshot” to load a newer snapshot without refreshing.
+- This snapshot is for inspection only; it does not restore the active game or persist the actual in-memory bags across rounds.
+- If the game is opened via file:// while the preview is opened via Live Server, browser storage is isolated and the snapshot will not be shared. Open both through the same Live Server origin.
+
+
+Temporary live Marble Bag inspector update
+------------------------------------------
+- Added an Inspect live Marble Bags panel to the in-game pause overlay.
+- Reads copied, read-only views of active in-memory bag entries; it does not use localStorage as the source of bag contents.
+- Displays exact remaining entries behind expandable lists, frequency counts, draw/replenishment counters, and the most recent letter/bonus draw path.
+- Explicitly reports when board balancing forced a category and bypassed the corresponding top-level bag or consonant subgroup selector.
+- The existing marble-bag-preview.html remains a separate snapshot diagnostics page.
+- Automated Node test files were run after this update; all passed. Browser-based gameplay smoke testing was not performed in this environment.
+
+
+v3.05 hotfix (2026-10-26): Restored board tile interaction by fixing an over-broad pointer guard. Board tiles are buttons, so the previous guard accidentally rejected all board tile pointer-down events. Automated syntax and test suites passed; live browser/device testing remains pending.

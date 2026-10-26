@@ -1,0 +1,31 @@
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.join(__dirname, '..');
+const game = fs.readFileSync(path.join(root, 'js/game.js'), 'utf8');
+const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+assert.doesNotMatch(html, /data-round-power="none"/, 'None Round Power option must be removed');
+assert.match(html, /data-round-power="wild-letter"/, 'Wild Letter remains selectable');
+assert.match(html, /data-round-power="anchor-word"/, 'Chain remains selectable with stable internal option ID');
+assert.match(html, /<strong>Chain Protect<\/strong>/, 'user-facing power name is Chain Protect');
+assert.match(html, /Protect 2–5 connected tiles while you wait for letters like S, ER, or ING/, 'Chain Protect card explains the word-extension use case and five-tile cap');
+assert.match(html, /3 charges per round/, 'Wild Letter shows its charge count');
+assert.match(game, /const MAX_CHAIN_TILES = 5/, 'Chain Protect has a five-tile maximum');
+assert.match(game, /Chain Protect limit: \$\{MAX_CHAIN_TILES\} tiles maximum/, 'selection enforces the maximum chain length');
+assert.match(game, /actionSymbol.innerHTML = '<svg viewBox="0 0 24 24"/, 'center power uses a link icon rather than the letter A');
+assert.match(game, /let selectedRoundPower = 'wild-letter'/, 'Wild Letter is the default selection');
+assert.match(game, /anchorWordCharges = selectedRoundPower === 'anchor-word' \? 1 : 0/, 'Chain gets one non-refillable charge');
+const finishSelection = game.slice(game.indexOf('function finishSelection()'), game.indexOf('function ' , game.indexOf('function finishSelection()') + 20));
+assert.ok(finishSelection.indexOf('if (anchorWordMode)') < finishSelection.indexOf('if (!wordlistSet.has(word))'), 'Chain creation is processed before dictionary validation');
+assert.match(finishSelection, /tiles\[index\]\.isAnchored = true/, 'connected selections become protected tiles');
+assert.match(game, /tiles\[index\]\?\.isAnchored/, 'Bomb logic is aware of protected chain tiles');
+assert.doesNotMatch(game, /Bomb blocked · an anchored word is protected/, 'Bomb is not blocked by a protected tile nearby');
+assert.match(game, /tiles\[firstIndex\]\?\.isAnchored/, 'Swap excludes chained tiles');
+assert.match(game, /tiles\[index\]\?\.isAnchored\) return false/, 'Randomize excludes chained tiles');
+for (const file of ['css/style.css', 'css/style2.css']) {
+  const css = fs.readFileSync(path.join(root, file), 'utf8');
+  assert.match(css, /\.tile\.anchor-word-tile/, `${file} styles chained tiles`);
+  assert.match(css, /\.anchor-word-action/, `${file} styles the selected Chain center button`);
+}
+console.log('PASS: Chain selection, arbitrary connected tile sequence, charge, protection, and UI source checks');
