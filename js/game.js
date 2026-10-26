@@ -37,8 +37,13 @@
   const gameScreen = el('game-screen');
   const board = el('board');
   const selectionTrace = el('selection-trace');
+  const rawPointerTrace = el('raw-pointer-trace');
   const boardStage = board ? board.closest('.board-stage') : null;
   let pointerTracePoints = [];
+  // Diagnostic-only raw pointer samples; this never participates in tile selection.
+  let diagnosticGestures = [];
+  let activeDiagnosticGesture = null;
+  let diagnosticClearTimer = null;
   let rotateCenterOverlay = null;
   let rotateCenterOriginal = null;
   let bombTargetPreview = null;
@@ -1580,6 +1585,108 @@
     el('game-over').hidden = false;
   }
 
+  function diagnosticSample(event, phase) {
+    const rect = boardStage ? boardStage.getBoundingClientRect() : board.getBoundingClientRect();
+    return {
+      phase,
+      t: Number((performance.now() - (activeDiagnosticGesture?.startedAt ?? performance.now())).toFixed(2)),
+      timeStamp: Number(event.timeStamp.toFixed(2)),
+      clientX: Number(event.clientX.toFixed(2)),
+      clientY: Number(event.clientY.toFixed(2)),
+      boardX: Number((event.clientX - rect.left).toFixed(2)),
+      boardY: Number((event.clientY - rect.top).toFixed(2)),
+      boardWidth: Number(rect.width.toFixed(2)),
+      boardHeight: Number(rect.height.toFixed(2)),
+      pointerType: event.pointerType || 'unknown',
+      pointerId: event.pointerId,
+      buttons: event.buttons,
+      pressure: Number((event.pressure || 0).toFixed(3)),
+      selectedIndices: [...selectedIndices]
+    };
+  }
+
+  function renderRawPointerTrace() {
+    if (!rawPointerTrace || !activeDiagnosticGesture) return;
+    const rect = boardStage ? boardStage.getBoundingClientRect() : board.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    rawPointerTrace.setAttribute('viewBox', `0 0 ${rect.width} ${rect.height}`);
+    rawPointerTrace.setAttribute('preserveAspectRatio', 'none');
+    rawPointerTrace.replaceChildren();
+    const points = activeDiagnosticGesture.samples;
+    if (!points.length) return;
+    const ns = 'http://www.w3.org/2000/svg';
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('class', 'raw-pointer-trace-path');
+    path.setAttribute('d', points.map((p, i) => `${i ? 'L' : 'M'} ${p.boardX} ${p.boardY}`).join(' '));
+    rawPointerTrace.appendChild(path);
+    const start = document.createElementNS(ns, 'circle');
+    start.setAttribute('class', 'raw-pointer-trace-start');
+    start.setAttribute('cx', points[0].boardX); start.setAttribute('cy', points[0].boardY); start.setAttribute('r', '5');
+    rawPointerTrace.appendChild(start);
+    const last = points[points.length - 1];
+    const end = document.createElementNS(ns, 'circle');
+    end.setAttribute('class', 'raw-pointer-trace-end');
+    end.setAttribute('cx', last.boardX); end.setAttribute('cy', last.boardY); end.setAttribute('r', '5');
+    rawPointerTrace.appendChild(end);
+  }
+
+  function startDiagnosticGesture(event) {
+    if (diagnosticClearTimer) { clearTimeout(diagnosticClearTimer); diagnosticClearTimer = null; }
+    if (rawPointerTrace) rawPointerTrace.replaceChildren();
+    const rect = boardStage ? boardStage.getBoundingClientRect() : board.getBoundingClientRect();
+    activeDiagnosticGesture = {
+      id: diagnosticGestures.length + 1,
+      startedAt: performance.now(),
+      startedWallTime: new Date().toISOString(),
+      pointerId: event.pointerId,
+      viewport: { width: window.innerWidth, height: window.innerHeight, devicePixelRatio: window.devicePixelRatio || 1 },
+      initialBoardRect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
+      samples: []
+    };
+    activeDiagnosticGesture.samples.push(diagnosticSample(event, 'pointerdown'));
+    renderRawPointerTrace();
+  }
+
+  function recordDiagnosticPointer(event, phase) {
+    if (!activeDiagnosticGesture || event.pointerId !== activeDiagnosticGesture.pointerId && activeDiagnosticGesture.pointerId !== undefined) return;
+    if (activeDiagnosticGesture.pointerId === undefined) activeDiagnosticGesture.pointerId = event.pointerId;
+    activeDiagnosticGesture.samples.push(diagnosticSample(event, phase));
+    renderRawPointerTrace();
+  }
+
+  function endDiagnosticGesture(event, phase) {
+    if (!activeDiagnosticGesture) return;
+    recordDiagnosticPointer(event, phase);
+    activeDiagnosticGesture.endedWallTime = new Date().toISOString();
+    activeDiagnosticGesture.durationMs = Number((performance.now() - activeDiagnosticGesture.startedAt).toFixed(2));
+    activeDiagnosticGesture.finalSelectedIndices = [...selectedIndices];
+    activeDiagnosticGesture.finalWord = getWord();
+    diagnosticGestures.push(activeDiagnosticGesture);
+    // Retain a bounded recent history so a long session cannot grow without limit.
+    if (diagnosticGestures.length > 100) diagnosticGestures.shift();
+    activeDiagnosticGesture = null;
+    diagnosticClearTimer = setTimeout(() => { rawPointerTrace?.replaceChildren(); diagnosticClearTimer = null; }, 2000);
+  }
+
+  function downloadTouchDiagnostics() {
+    const payload = {
+      format: 'word-scavenger-touch-diagnostics-v1',
+      build: 'v3.06-touch-diagnostic',
+      exportedAt: new Date().toISOString(),
+      note: 'Raw pointer samples are recorded separately from tile-selection decisions. Coordinates are CSS pixels relative to the board-stage at each event.',
+      userAgent: navigator.userAgent,
+      screen: { width: window.screen.width, height: window.screen.height, devicePixelRatio: window.devicePixelRatio || 1 },
+      gestures: diagnosticGestures
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url; link.download = `word-scavenger-touch-diagnostics-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+    document.body.appendChild(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    el('word-feedback').textContent = `Downloaded ${diagnosticGestures.length} touch gesture(s)`;
+  }
+
   function getWord() { return selectedIndices.map((index) => tiles[index].letter).join(''); }
 
   function renderSelectionTrace() {
@@ -2072,6 +2179,7 @@
   el('pause-button').addEventListener('click', () => isPaused ? resumeGame() : pauseGame());
   el('bag-inspector-toggle').addEventListener('click', () => toggleLiveBagInspector());
   el('bag-inspector-refresh').addEventListener('click', renderLiveBagInspector);
+  el('download-touch-diagnostics').addEventListener('click', downloadTouchDiagnostics);
   el('resume-button').addEventListener('click', resumeGame);
   el('game-menu-button').addEventListener('click', returnToMenu);
   el('wild-letter-action').addEventListener('click', () => {
@@ -2151,6 +2259,7 @@
     }
     isSelecting = true;
     selectedIndices = [];
+    startDiagnosticGesture(event);
     lastPointerX = event.clientX;
     lastPointerY = event.clientY;
     pointerTracePoints = [{ x: event.clientX, y: event.clientY }];
@@ -2203,6 +2312,9 @@
       const index = tileIndexFromPoint(x, y);
       if (index !== -1) selectTile(index);
     }
+    // Store the raw event coordinates after selection has processed this event, so
+    // the sample's separate selectedIndices snapshot can be compared accurately.
+    recordDiagnosticPointer(event, 'pointermove');
     const lastPoint = pointerTracePoints[pointerTracePoints.length - 1];
     if (!lastPoint || Math.hypot(event.clientX - lastPoint.x, event.clientY - lastPoint.y) >= 1.5) {
       pointerTracePoints.push({ x: event.clientX, y: event.clientY });
@@ -2243,6 +2355,7 @@
     isSelecting = false;
     lastPointerX = null;
     lastPointerY = null;
+    endDiagnosticGesture(event, event.type === 'pointercancel' ? 'pointercancel' : 'pointerup');
     finishSelection();
   }
   board.addEventListener('pointerleave', () => { if (bombMode) hideBombTargetPreview(); board.querySelectorAll('.power-target-hover').forEach((tile) => tile.classList.remove('power-target-hover')); });
