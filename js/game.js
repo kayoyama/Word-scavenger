@@ -38,6 +38,69 @@
   const board = el('board');
   const selectionTrace = el('selection-trace');
   const boardStage = board ? board.closest('.board-stage') : null;
+  // Diagnostic controls for the experimental octagonal virtual touch regions.
+  // Visual tile shape is independent from this slider-controlled hit-test geometry.
+  let touchHitboxExpansionRatio = -0.08;
+  if (boardStage && board) {
+    const hitboxControls = document.createElement('div');
+    hitboxControls.id = 'hitbox-debug-controls';
+
+    const hitboxToggle = document.createElement('button');
+    hitboxToggle.id = 'hitbox-debug-toggle';
+    hitboxToggle.type = 'button';
+    hitboxToggle.textContent = 'Show hitbox overlay';
+    hitboxToggle.setAttribute('aria-pressed', 'false');
+    hitboxToggle.setAttribute('aria-label', 'Toggle visible octagonal tile hitboxes');
+    hitboxToggle.addEventListener('click', () => {
+      const enabled = document.body.classList.toggle('hitbox-debug');
+      hitboxToggle.textContent = enabled ? 'Hide hitbox overlay' : 'Show hitbox overlay';
+      hitboxToggle.setAttribute('aria-pressed', String(enabled));
+    });
+
+    const sliderLabel = document.createElement('label');
+    sliderLabel.id = 'hitbox-size-label';
+    sliderLabel.htmlFor = 'hitbox-size-slider';
+    sliderLabel.textContent = 'Hitbox adjustment: ';
+    const sliderValue = document.createElement('output');
+    sliderValue.id = 'hitbox-size-value';
+    sliderValue.value = '-8%';
+    sliderValue.textContent = '-8%';
+    sliderLabel.appendChild(sliderValue);
+
+    const slider = document.createElement('input');
+    slider.id = 'hitbox-size-slider';
+    slider.type = 'range';
+    slider.min = '-8';
+    slider.max = '16';
+    slider.step = '1';
+    slider.value = '-8';
+    slider.setAttribute('aria-label', 'Hitbox size adjustment percentage per side; negative shrinks, positive expands');
+    slider.setAttribute('aria-describedby', 'hitbox-size-value');
+    slider.addEventListener('input', () => {
+      const percent = Number(slider.value);
+      touchHitboxExpansionRatio = percent / 100;
+      sliderValue.value = `${percent}%`;
+      sliderValue.textContent = `${percent}%`;
+      document.documentElement.style.setProperty('--hitbox-expansion', `${percent}%`);
+    });
+
+    const sliderHelp = document.createElement('span');
+    sliderHelp.id = 'hitbox-size-help';
+    sliderHelp.textContent = 'per side · −8% shrinks · 0% = visible tile · +16% expands';
+    hitboxControls.append(hitboxToggle, sliderLabel, slider, sliderHelp);
+    hitboxControls.setAttribute('aria-label', 'Hitbox testing settings');
+    const pauseCard = document.querySelector('#pause-overlay .pause-card');
+    if (pauseCard) {
+      const settingsHeading = document.createElement('h3');
+      settingsHeading.className = 'hitbox-settings-heading';
+      settingsHeading.textContent = 'Input testing';
+      pauseCard.insertBefore(settingsHeading, document.getElementById('bag-inspector-toggle'));
+      pauseCard.insertBefore(hitboxControls, document.getElementById('bag-inspector-toggle'));
+    } else {
+      boardStage.insertAdjacentElement('afterend', hitboxControls);
+    }
+    document.documentElement.style.setProperty('--hitbox-expansion', '-8%');
+  }
   let pointerTracePoints = [];
   let rotateCenterOverlay = null;
   let rotateCenterOriginal = null;
@@ -89,6 +152,7 @@
   let refillToken = 0;
   let lastPointerX = null;
   let lastPointerY = null;
+  let selectionTileRects = [];
   let totalScore = 0;
   let lastScore = 0;
   let sessionWords = 0;
@@ -1665,23 +1729,25 @@
   }
 
   function tileIndexFromPoint(x, y) {
-    // Prefer actual tile geometry over elementFromPoint(). On mobile browsers,
-    // pointer capture and composited tile/bonus animations can make elementFromPoint
-    // report the board or an overlay for coordinates that are visibly over a tile.
     const target = document.elementFromPoint(x, y);
     const tile = target && target.closest ? target.closest('.tile') : null;
-    if (tile && board.contains(tile)) return Number(tile.dataset.index);
+    return tile && board.contains(tile) ? Number(tile.dataset.index) : -1;
+  }
 
-    // Resolve coordinates against the rendered tile rectangles as a fallback.
-    // This remains bounded to the tile itself (including no generous snapping),
-    // so it does not select a neighboring tile when the pointer is in a wide gap.
-    for (const candidate of board.querySelectorAll('.tile')) {
-      const rect = candidate.getBoundingClientRect();
-      if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
-        return Number(candidate.dataset.index);
-      }
-    }
-    return -1;
+  function tileIndexFromTrajectoryPoint(x, y, directionX = 0, directionY = 0) {
+    if (selectionTileRects.length !== tiles.length) return tileIndexFromPoint(x, y);
+    const previousIndex = selectedIndices.length ? selectedIndices[selectedIndices.length - 1] : -1;
+    return gameLogic.resolveTrajectoryTileIndex(selectionTileRects, x, y, previousIndex, selectedIndices, touchHitboxExpansionRatio, SIZE, directionX, directionY);
+  }
+
+  function cacheSelectionTileRects() {
+    selectionTileRects = new Array(tiles.length);
+    board.querySelectorAll('.tile').forEach((tile) => {
+      const index = Number(tile.dataset.index);
+      if (!Number.isInteger(index) || index < 0 || index >= selectionTileRects.length) return;
+      const rect = tile.getBoundingClientRect();
+      selectionTileRects[index] = { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height };
+    });
   }
 
   function selectTile(index) {
@@ -2165,6 +2231,7 @@
     }
     isSelecting = true;
     selectedIndices = [];
+    cacheSelectionTileRects();
     lastPointerX = event.clientX;
     lastPointerY = event.clientY;
     pointerTracePoints = [{ x: event.clientX, y: event.clientY }];
@@ -2210,14 +2277,11 @@
     // samples between pointer events separately so fast drags cannot skip tiles.
     const dx = event.clientX - lastPointerX;
     const dy = event.clientY - lastPointerY;
-    // Sample at a finer interval than the narrowest likely tile gap on mobile.
-    // The geometry fallback above handles hit-testing misses; denser sampling
-    // ensures a fast diagonal drag still visits intermediate tile interiors.
-    const steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / 3));
+    const steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / 8));
     for (let step = 1; step <= steps; step += 1) {
       const x = lastPointerX + (dx * step) / steps;
       const y = lastPointerY + (dy * step) / steps;
-      const index = tileIndexFromPoint(x, y);
+      const index = tileIndexFromTrajectoryPoint(x, y, dx, dy);
       if (index !== -1) selectTile(index);
     }
     const lastPoint = pointerTracePoints[pointerTracePoints.length - 1];
@@ -2260,6 +2324,7 @@
     isSelecting = false;
     lastPointerX = null;
     lastPointerY = null;
+    selectionTileRects = [];
     finishSelection();
   }
   board.addEventListener('pointerleave', () => { if (bombMode) hideBombTargetPreview(); board.querySelectorAll('.power-target-hover').forEach((tile) => tile.classList.remove('power-target-hover')); });

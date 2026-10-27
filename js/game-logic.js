@@ -133,6 +133,93 @@
     return transitions;
   }
 
+  // Resolve a pointer sample against cached tile rectangles. Expanded hit regions are
+  // deliberately bounded and candidates must continue the current 8-neighbor path
+  // (or be an earlier selected tile for deliberate backtracking).
+  function resolveTrajectoryTileIndex(
+    rects,
+    x,
+    y,
+    previousIndex = -1,
+    selectedIndices = [],
+    expansionRatio = 0,
+    boardSize = 5,
+    directionX = 0,
+    directionY = 0
+  ) {
+    if (!Array.isArray(rects) || !Number.isFinite(x) || !Number.isFinite(y)) return -1;
+
+    const selected = new Set(Array.isArray(selectedIndices) ? selectedIndices : []);
+    const ratio = Math.max(-0.08, Math.min(0.16, Number(expansionRatio) || 0));
+    const directionLength = Math.hypot(directionX, directionY);
+    const dirX = directionLength > 0 ? directionX / directionLength : 0;
+    const dirY = directionLength > 0 ? directionY / directionLength : 0;
+    const previousRect = Number.isInteger(previousIndex) ? rects[previousIndex] : null;
+    const previousCenterX = previousRect ? previousRect.left + previousRect.width / 2 : x;
+    const previousCenterY = previousRect ? previousRect.top + previousRect.height / 2 : y;
+
+    const isAllowed = (index) => {
+      if (previousIndex < 0 || index === previousIndex || selected.has(index)) return true;
+      const rowDistance = Math.abs(Math.floor(index / boardSize) - Math.floor(previousIndex / boardSize));
+      const colDistance = Math.abs((index % boardSize) - (previousIndex % boardSize));
+      return rowDistance <= 1 && colDistance <= 1 && rowDistance + colDistance > 0;
+    };
+
+    let bestIndex = -1;
+    let bestScore = Infinity;
+
+    rects.forEach((rect, index) => {
+      if (!rect || !Number.isFinite(rect.left) || !Number.isFinite(rect.top) ||
+          !Number.isFinite(rect.width) || !Number.isFinite(rect.height) || !isAllowed(index)) return;
+
+      // Signed adjustment: positive expands the virtual target; negative contracts it.
+      // Keep the adjustment bounded so the test slider cannot invert a tile's bounds.
+      const pad = Math.min(rect.width, rect.height) * ratio;
+      const left = rect.left - pad;
+      const right = rect.right + pad;
+      const top = rect.top - pad;
+      const bottom = rect.bottom + pad;
+      if (left > right || top > bottom || x < left || x > right || y < top || y > bottom) return;
+
+      const insideEffectiveRect = x >= left && x <= right && y >= top && y <= bottom;
+      const insideVisibleRect = x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+
+      // When expansion is positive, clip only the outer corners of the added region.
+      // A negative adjustment instead contracts the actual selectable rectangle.
+      if (ratio > 0 && !insideVisibleRect) {
+        const outsideX = x < rect.left ? rect.left - x : (x > rect.right ? x - rect.right : 0);
+        const outsideY = y < rect.top ? rect.top - y : (y > rect.bottom ? y - rect.bottom : 0);
+        const cornerCut = Math.min(rect.width, rect.height) * 0.06;
+        if (outsideX > 0 && outsideY > 0 && outsideX + outsideY > pad + cornerCut) return;
+      }
+
+      const dx = x < left ? left - x : (x > right ? x - right : 0);
+      const dy = y < top ? top - y : (y > bottom ? y - bottom : 0);
+      const centerX = (left + right) / 2;
+      const centerY = (top + bottom) / 2;
+      const centerDx = x - centerX;
+      const centerDy = y - centerY;
+      const distanceScore = (dx * dx + dy * dy) * 1000 + centerDx * centerDx + centerDy * centerDy;
+
+      // Direction is a tie-breaker for competing expanded regions, not a replacement
+      // for proximity. It is derived from the current pointer-event trajectory.
+      const moveX = centerX - previousCenterX;
+      const moveY = centerY - previousCenterY;
+      const moveLength = Math.hypot(moveX, moveY);
+      const alignment = previousRect && moveLength > 0 && directionLength > 0
+        ? (moveX * dirX + moveY * dirY) / moveLength
+        : 0;
+      const score = distanceScore - (insideVisibleRect ? 1000000 : alignment * 20);
+      if (score < bestScore ||
+          (score === bestScore && bestIndex === previousIndex && index !== previousIndex)) {
+        bestScore = score;
+        bestIndex = index;
+      }
+    });
+
+    return bestIndex;
+  }
+
   function summarizeRound(round) {
     const wordsFound = Math.max(0, Number(round.wordsFound) || 0);
     const finalScore = Number(round.finalScore) || 0;
@@ -151,6 +238,6 @@
     };
   }
 
-  root.WordGameLogic = Object.freeze({ rotateClockwise, rotateClockwiseSourceIndex, withRandomizedLetter, swapTiles, bombClearAndGravity, resolveBombLandingBonuses, summarizeRound });
+  root.WordGameLogic = Object.freeze({ rotateClockwise, rotateClockwiseSourceIndex, withRandomizedLetter, swapTiles, bombClearAndGravity, resolveBombLandingBonuses, resolveTrajectoryTileIndex, summarizeRound });
   if (typeof module !== 'undefined' && module.exports) module.exports = root.WordGameLogic;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -1,0 +1,28 @@
+Word Scavenger v3.07.3 — Adjustable Hitbox and Direction-Aware Drag Test
+
+Purpose
+Make the experimental expanded octagonal touch regions visible so they can be compared against the actual letter tiles on a phone.
+
+How to use
+- Open index.html normally. The debug overlay is ON by default.
+- Bright magenta dashed octagons represent the approximate expanded virtual hit areas around each tile.
+- The tile itself remains the original visible button. The overlay is non-interactive and does not intercept touches.
+- Tap “Hitboxes: ON” below the board to hide the outlines; tap again to show them.
+
+Important interpretation
+The outlines are a visual approximation of the virtual regions calculated by the JavaScript hit-test. Because hit selection also applies neighbor-path restrictions and candidate ranking, an outline indicates the region considered for a tile, not a guarantee that every point will select that tile in every trajectory state.
+
+Validation
+- JavaScript syntax checks passed.
+- All existing tests/*.test.js passed.
+- ZIP integrity checked after packaging.
+- Not tested on a physical Android phone; user testing is still required.
+
+
+V3.07.3 HITBOX SIZE SLIDER TEST
+- Added hitbox adjustment slider from −8% to +16%, in 1% increments; 0% is the default and preferred baseline. Negative values contract selectable bounds; positive values expand them.
+- Value is shown numerically as a percentage per side. Default is 16%, matching v3.07.2.
+- The same live value controls JavaScript virtual hit-testing and the CSS octagon overlay.
+- Set Hitboxes ON to see the approximate adjusted bounds; turn OFF to hide outlines while keeping the selected adjustment active.
+- Added pointer-direction scoring to resolve overlapping candidate regions during diagonal drags; geometric proximity remains the primary signal.
+- 0% disables virtual expansion; 16% is the previous build's setting.

@@ -1,0 +1,19 @@
+Word Scavenger — Octagonal Touch-Hit Test (experimental)
+
+Base: Word Scavenger v3.07
+Purpose: Test whether a bounded virtual octagonal hit region improves mobile diagonal tile selection.
+
+Changes:
+- Updated only the trajectory-aware hit test in js/game-logic.js.
+- Preserves the visible tile rectangles and current tile visuals/animations.
+- Keeps actual visible tile areas fully selectable; adds bounded hit area around each tile and trims only the farthest outer corners.
+- Retains neighbor-only movement and intentional backtracking rules.
+- No scoring, timer, board, animation, or power-up rules were intentionally changed.
+
+Validation performed:
+- All tests/*.test.js passed under Node.js.
+- node --check passed for js/game.js and js/game-logic.js.
+- ZIP archive integrity checked after packaging.
+
+Important:
+This is an experimental build, not a confirmed fix. It has not been tested on a physical Android phone. Please compare diagonal selection against v3.07 and report whether the selection feels more reliable or causes unintended tile selection.

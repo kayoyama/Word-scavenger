@@ -46,3 +46,5 @@ v3.05 hotfix (2026-10-26): Restored board tile interaction by fixing an over-bro
 
 
 v3.06 hotfix (2026-10-26): Added a picker-level fresh pointer-down gate to prevent the Wild Letter target-tile tap's trailing click from choosing a letter. Timers continue during tile targeting and pause only while the letter picker is open, resuming according to their prior running state. Updated changelog and authoritative scoring/timer rules to restore the v3.05 source-aligned timer rewards and 180-second cap. All six Node test suites pass; live browser/mobile touch testing remains pending.
+
+v3.07 (2026-10-26): Added bounded trajectory-aware tile resolution for ordinary drag selection. Samples are resolved against tile rectangles cached by current board index, tolerate a narrow gap around tile edges, prefer valid neighboring tiles, reject distant jumps, and preserve backtracking to previously selected tiles. Added deterministic resolver tests and bumped the PWA cache to v12. Syntax and all six Node test suites pass; browser and Android thumb-drag verification remain pending.

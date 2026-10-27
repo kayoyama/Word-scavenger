@@ -1,3 +1,19 @@
+## v3.07 — 2026-10-26 — Trajectory-aware touch selection
+
+### Changed
+- Added bounded trajectory-aware tile resolution for ordinary word dragging. Pointer movement is sampled along the path and resolves against cached tile rectangles, including a narrow tolerance around tile boundaries and gaps.
+- Candidate tiles must continue the current eight-neighbor path or be an already-selected tile, preserving connected selection and deliberate backtracking while avoiding distant jumps.
+- Cached tile rectangles by their current board index so rotation and DOM node reordering cannot mismatch geometry with tile identity.
+- Kept the visual pointer trace, word validation, scoring, powers, animation locks, and tile rendering unchanged. Bumped the PWA cache version so installed clients can fetch the updated logic.
+
+### Verification
+- Added deterministic regression checks for initial targeting, narrow-gap resolution, rejecting distant jumps, diagonal neighbors, and backtracking.
+- `node --check js/game.js` and `node --check js/game-logic.js` — passed.
+- `node --test tests/*.test.js` — all six test suites passed.
+- Browser visual/interaction and real Android thumb-drag testing have not been performed; those remain necessary to tune corridor sensitivity on-device.
+
+---
+
 ## v3.06 — 2026-10-26 — Prevent Wild Letter picker gesture bleed-through
 
 ### Fixed
@@ -757,3 +773,16 @@ The history available for this update includes the changelog source, a Classic M
 ### Verification
 - Updated Marble Bag tests for the 25-entry category selectors and added coverage for both Randomize modes and exclusion of the returned letter.
 - JavaScript syntax, automated regression tests, and ZIP integrity checks were run for the v3.04 package. Live browser and Android touch testing remains necessary to confirm the intermittent Wild Letter issue is resolved in actual interaction.
+
+
+## 2026-10-27 — Hitbox slider range and direction-aware diagonal drag test
+
+### Changed
+- Changed the diagnostic hitbox adjustment slider to −8% through +16% in 1% increments, with 0% as the default baseline. Negative values contract selectable bounds; positive values expand them.
+- Updated the visible hitbox overlay to reflect negative and positive adjustments.
+- Passed the pointer-event movement vector into trajectory hit testing so direction can break ties between competing neighboring hit regions, while retaining geometric proximity, neighbor-only selection, and backtracking.
+
+### Verification
+- JavaScript syntax checks passed for `js/game.js` and `js/game-logic.js`.
+- All six existing Node.js test files passed, including new regression assertions for directional corner tie-breaking and negative adjustment behavior.
+- ZIP integrity checked after packaging. Real-browser and physical-device interaction testing remain outstanding.

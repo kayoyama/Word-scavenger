@@ -1,6 +1,10 @@
 'use strict';
 const assert = require('node:assert/strict');
 const logic = require('../js/game-logic.js');
+const fs = require('node:fs');
+const gameSource = fs.readFileSync(require.resolve('../js/game.js'), 'utf8');
+assert.match(gameSource, /tileIndexFromTrajectoryPoint\(x, y, dx, dy\)/, 'ordinary drag selection passes pointer direction to trajectory-aware resolution');
+assert.match(gameSource, /cacheSelectionTileRects\(\)/, 'tile geometry is cached at selection start');
 
 function makeBoard(size = 5) {
   return Array.from({ length: size * size }, (_, i) => ({
@@ -28,6 +32,34 @@ function makeBoard(size = 5) {
   assert.equal(logic.rotateClockwiseSourceIndex(0, 5), 20, 'top-left destination maps to bottom-left source');
   assert.equal(logic.rotateClockwiseSourceIndex(12, 5), 12, 'center destination maps to center source');
   assert.throws(() => logic.rotateClockwiseSourceIndex(25, 5), RangeError);
+}
+
+// Trajectory-aware tile resolution tolerates small gaps, preserves neighboring paths,
+// and permits intentional backtracking without allowing a distant tile jump.
+{
+  const rects = Array.from({ length: 25 }, (_, index) => {
+    const row = Math.floor(index / 5);
+    const col = index % 5;
+    const left = col * 44;
+    const top = row * 44;
+    return { left, top, right: left + 40, bottom: top + 40, width: 40, height: 40 };
+  });
+  assert.equal(logic.resolveTrajectoryTileIndex(rects, 20, 20, -1, [], 0.16, 5), 0,
+    'initial point resolves to the tile under the pointer');
+  assert.equal(logic.resolveTrajectoryTileIndex(rects, 42, 20, 0, [0], 0.16, 5), 1,
+    'a point in the narrow gap resolves to an adjacent tile');
+  assert.equal(logic.resolveTrajectoryTileIndex(rects, 108, 20, 0, [0], 0.16, 5), -1,
+    'a distant non-neighbor cannot be selected as a jump');
+  assert.equal(logic.resolveTrajectoryTileIndex(rects, 20, 20, 1, [0, 1], 0.16, 5), 0,
+    'an earlier selected tile remains eligible for backtracking');
+  assert.equal(logic.resolveTrajectoryTileIndex(rects, 42, 42, 0, [0], 0.16, 5, 1, 1), 6,
+    'diagonal movement direction resolves an equidistant corner toward the diagonal neighbor');
+  assert.equal(logic.resolveTrajectoryTileIndex(rects, 42, 42, 0, [0], 0.16, 5, 1, 0), 1,
+    'horizontal movement direction breaks the same corner tie toward the horizontal neighbor');
+  assert.equal(logic.resolveTrajectoryTileIndex(rects, 42, 20, 0, [0], 0, 5, 1, 0), -1,
+    '0% uses only visible tile rectangles and does not invent gap coverage');
+  assert.equal(logic.resolveTrajectoryTileIndex(rects, 41, 20, 0, [0], -0.08, 5, 1, 0), -1,
+    'negative adjustment contracts hit regions and rejects points outside the contracted rectangle');
 }
 
 // Randomize changes only the letter and preserves bonus/color/other metadata.
