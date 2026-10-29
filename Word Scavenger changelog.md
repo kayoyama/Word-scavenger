@@ -1,3 +1,19 @@
+## v3.07.5 — 2026-10-30 — Hitbox tuning and octagonal tile refinement
+
+### Changed
+- Set the trajectory hitbox adjustment to a configurable `-0.07` ratio (−7% per side), keeping the visible tile size and grid layout unchanged.
+- Removed the experimental hitbox slider, hitbox toggle, and diagnostic overlay. No hitbox overlay is shown on pause or during gameplay.
+- Refined both themes to use a more square-like, symmetrical octagon with moderately clipped corners and a subtle inset edge treatment for a more connected tile surface.
+- Bumped the PWA cache version so installed clients can fetch the updated JavaScript and styles.
+- Deferred the proposed local 3×3 vowel-balancing rule to a separate phase; it is not included in this build.
+
+### Verification
+- `node --check js/game.js` and `node --check js/game-logic.js` — passed.
+- `node --test tests/*.test.js` — all six test suites passed.
+- ZIP integrity checked after packaging. Browser visual review and physical Android touch testing have not been performed.
+
+---
+
 ## v3.07 — 2026-10-26 — Trajectory-aware touch selection
 
 ### Changed
@@ -786,3 +802,25 @@ The history available for this update includes the changelog source, a Classic M
 - JavaScript syntax checks passed for `js/game.js` and `js/game-logic.js`.
 - All six existing Node.js test files passed, including new regression assertions for directional corner tie-breaking and negative adjustment behavior.
 - ZIP integrity checked after packaging. Real-browser and physical-device interaction testing remain outstanding.
+
+
+## v3.07.6 — 2026-10-30 — Tile gloss and flip artifact follow-up
+
+### Changed
+- Reshaped the glossy tile highlight to follow an octagonal cap rather than an oval that clashes with the tile silhouette.
+- Added WebKit backface-visibility declarations and adjusted the flip's edge-on midpoint from 90° to 89° to reduce intermittent black compositing flashes while retaining the existing flip duration and sequence.
+
+### Verification
+- JavaScript syntax and automated tests are to be run against this package. Browser visual verification remains outstanding.
+
+
+## v3.07.7 — 2026-10-30 — Flip artifact root-cause fix
+
+### Fixed
+- Removed the `BONUS` label pseudo-element from `.tile.bonus-hit::after`. The same pseudo-element is now used for the octagonal inset edge; the competing selector was replacing that edge with a dark rectangular label during bonus-tile feedback and flips.
+- Removed the corresponding Style 2 override for that conflicting pseudo-element. Bonus-tile feedback continues to use the existing outline and glow.
+- Restored the flip midpoint to the original 90-degree angle and removed the extra backface declarations introduced in v3.07.6, preserving the prior flip animation behavior.
+
+### Verification
+- JavaScript syntax and automated Node test suites checked after the CSS-only correction.
+- ZIP integrity checked. Live browser reproduction/visual confirmation remains outstanding.

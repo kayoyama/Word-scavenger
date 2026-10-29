@@ -20,6 +20,17 @@
   const MIN_BONUS_TILES = 5;
   const MAX_BONUS_TILES = 10;
   const MAX_LETTER_COPIES = 4;
+  const LOCAL_VOWEL_MIN = 2;
+  const LOCAL_VOWEL_MAX = 6;
+  const LOCAL_VOWEL_RETRY_LIMIT = 20;
+  const LOCAL_VOWEL_BLOCKS = Object.freeze([
+    Object.freeze([0, 1, 2, 5, 6, 7, 10, 11, 12]),       // top-left
+    Object.freeze([2, 3, 4, 7, 8, 9, 12, 13, 14]),       // top-right
+    Object.freeze([6, 7, 8, 11, 12, 13, 16, 17, 18]),    // center
+    Object.freeze([10, 11, 12, 15, 16, 17, 20, 21, 22]), // bottom-left
+    Object.freeze([12, 13, 14, 17, 18, 19, 22, 23, 24])  // bottom-right
+  ]);
+  let localBalanceStats = { rejected: 0, relaxed: 0 };
   // Editable category-selector distributions (counts per 25-tile board).
   const CATEGORY_DISTRIBUTION = Object.freeze({ vowel: 9, consonant: 16, common: 20, uncommon: 5, normalBonus: 18, bonusTile: 7 });
   const RANDOMIZE_MODE = Object.freeze({ WEIGHTED_BYPASS_CAP: 'weighted_bypass_cap', UNIFORM_ANY_LETTER: 'uniform_any_letter' });
@@ -75,6 +86,7 @@
 
     function reset() {
       lastDraw = { letter: null, bonus: null };
+      localBalanceStats = { rejected: 0, relaxed: 0 };
       bags = {
         letterCategory: createBag('letterCategory', () => [
           ...Array(CATEGORY_DISTRIBUTION.vowel).fill('V'), ...Array(CATEGORY_DISTRIBUTION.consonant).fill('C')
@@ -200,7 +212,60 @@
       return type;
     }
 
-    function generateTile(board, targetIndex, tileOptions = {}) {
+    function isLocalBoardBalanced(board) {
+      if (!Array.isArray(board) || board.length < 25) return false;
+      return LOCAL_VOWEL_BLOCKS.every((block) => {
+        let vowels = 0;
+        for (const index of block) {
+          const tile = board[index];
+          if (tile && !tile.isWildLetter && VOWELS.has(String(tile.letter || '').toUpperCase())) vowels += 1;
+        }
+        return vowels >= LOCAL_VOWEL_MIN && vowels <= LOCAL_VOWEL_MAX;
+      });
+    }
+
+    function localVowelConstraintAllows(board, targetIndex, candidateLetter) {
+      if (!Array.isArray(board) || !Number.isInteger(targetIndex) || targetIndex < 0 || targetIndex >= 25) return true;
+      const candidateBoard = board.slice();
+      const current = candidateBoard[targetIndex];
+      candidateBoard[targetIndex] = {
+        ...(current && typeof current === 'object' ? current : {}),
+        letter: String(candidateLetter || '').toUpperCase(),
+        isWildLetter: false
+      };
+      for (const block of LOCAL_VOWEL_BLOCKS) {
+        if (!block.includes(targetIndex)) continue;
+        let vowels = 0;
+        let empty = 0;
+        for (const index of block) {
+          const tile = candidateBoard[index];
+          if (!tile) { empty += 1; continue; }
+          if (tile.isWildLetter) continue; // Wild Letter retains its special, non-bag behavior.
+          if (VOWELS.has(String(tile.letter || '').toUpperCase())) vowels += 1;
+        }
+        if (vowels > LOCAL_VOWEL_MAX || vowels + empty < LOCAL_VOWEL_MIN) return false;
+      }
+      return true;
+    }
+
+    function snapshotBags() {
+      const snapshot = {};
+      Object.entries(bags).forEach(([key, bag]) => {
+        snapshot[key] = { entries: bag.entries.slice(), draws: bag.draws, replenishments: bag.replenishments };
+      });
+      return { bags: snapshot, lastDraw: { letter: lastDraw.letter ? { ...lastDraw.letter } : null, bonus: lastDraw.bonus ? { ...lastDraw.bonus } : null } };
+    }
+
+    function restoreBags(snapshot) {
+      Object.entries(snapshot.bags).forEach(([key, state]) => {
+        bags[key].entries = state.entries.slice();
+        bags[key].draws = state.draws;
+        bags[key].replenishments = state.replenishments;
+      });
+      lastDraw = { letter: snapshot.lastDraw.letter ? { ...snapshot.lastDraw.letter } : null, bonus: snapshot.lastDraw.bonus ? { ...snapshot.lastDraw.bonus } : null };
+    }
+
+    function drawTileOnce(board, targetIndex, tileOptions = {}) {
       lastDraw = { letter: null, bonus: null };
       const letter = drawLetter(board, targetIndex);
       let bonus;
@@ -218,6 +283,24 @@
       return { letter, bonus };
     }
 
+    function generateTile(board, targetIndex, tileOptions = {}) {
+      if (tileOptions.skipLocalVowelBalance) return drawTileOnce(board, targetIndex, tileOptions);
+      if (!Array.isArray(board) || !Number.isInteger(targetIndex) || targetIndex < 0 || targetIndex >= 25) {
+        return drawTileOnce(board, targetIndex, tileOptions);
+      }
+      for (let attempt = 0; attempt < LOCAL_VOWEL_RETRY_LIMIT; attempt += 1) {
+        const before = snapshotBags();
+        const tile = drawTileOnce(board, targetIndex, tileOptions);
+        if (localVowelConstraintAllows(board, targetIndex, tile.letter)) return tile;
+        localBalanceStats.rejected += 1;
+        restoreBags(before); // Rejected candidates must not consume or discard any bag entries.
+      }
+      // The local constraint is a secondary safeguard. Relax it for this draw only
+      // after bounded retries; existing global balancing remains authoritative.
+      localBalanceStats.relaxed += 1;
+      return drawTileOnce(board, targetIndex, tileOptions);
+    }
+
     function returnLetter(letter) {
       const value = String(letter || '').toUpperCase();
       if (VOWELS.has(value)) bags.vowelLetters.insert(value);
@@ -232,11 +315,16 @@
       return entries[Math.floor(random() * entries.length)];
     }
 
-    function drawRandomizeLetter(returnedLetter, mode = RANDOMIZE_MODE.WEIGHTED_BYPASS_CAP) {
+    function drawRandomizeLetter(returnedLetter, mode = RANDOMIZE_MODE.WEIGHTED_BYPASS_CAP, board = null, targetIndex = -1) {
       const returned = String(returnedLetter || '').toUpperCase();
       const allCounts = { ...VOWEL_COUNTS, ...COMMON_COUNTS, ...UNCOMMON_COUNTS };
-      const candidates = Object.entries(allCounts).filter(([letter, count]) => letter !== returned && count > 0);
+      let candidates = Object.entries(allCounts).filter(([letter, count]) => letter !== returned && count > 0);
       if (!candidates.length) throw new Error('No eligible replacement letter');
+      if (Array.isArray(board) && Number.isInteger(targetIndex) && targetIndex >= 0 && targetIndex < 25) {
+        const locallyValid = candidates.filter(([letter]) => localVowelConstraintAllows(board, targetIndex, letter));
+        if (locallyValid.length) candidates = locallyValid;
+        else localBalanceStats.relaxed += 1; // No valid replacement exists; relax only this action.
+      }
       let chosen;
       if (mode === RANDOMIZE_MODE.UNIFORM_ANY_LETTER) {
         chosen = candidates[Math.floor(random() * candidates.length)][0];
@@ -291,6 +379,8 @@
     function getLastDraw() {
       return { letter: lastDraw.letter ? { ...lastDraw.letter } : null, bonus: lastDraw.bonus ? { ...lastDraw.bonus } : null };
     }
+
+    function getLocalBalanceStats() { return { ...localBalanceStats }; }
 
     function getEffectiveProbabilities(board) {
       const info = boardInfo(board, -1);
@@ -361,11 +451,12 @@
     }
 
     reset();
-    return Object.freeze({ reset, drawLetter, drawBonus, generateTile, returnLetter, previewLetter, drawRandomizeLetter, weightedBonus, upgradeBonus, getState, getLastDraw, getContents, getEffectiveProbabilities });
+    return Object.freeze({ reset, drawLetter, drawBonus, generateTile, returnLetter, previewLetter, drawRandomizeLetter, weightedBonus, upgradeBonus, getState, getLastDraw, getContents, getEffectiveProbabilities, getLocalBalanceStats, isLocalBoardBalanced });
   }
 
   root.WordMarbleBag = Object.freeze({ createEngine, constants: Object.freeze({
     VOWEL_COUNTS, COMMON_COUNTS, UNCOMMON_COUNTS, BONUS_COUNTS, CATEGORY_DISTRIBUTION, RANDOMIZE_MODE,
+    LOCAL_VOWEL_MIN, LOCAL_VOWEL_MAX, LOCAL_VOWEL_RETRY_LIMIT, LOCAL_VOWEL_BLOCKS,
     LETTER_MIN_VOWELS, LETTER_MAX_VOWELS, MIN_UNCOMMON_CONSONANTS, MAX_UNCOMMON_CONSONANTS,
     MIN_BONUS_TILES, MAX_BONUS_TILES, MAX_LETTER_COPIES
   }) });

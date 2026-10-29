@@ -357,3 +357,35 @@ The history available for this update includes the changelog source, a Classic M
 - JavaScript syntax check passed for `js/game.js` and `js/game-logic.js`.
 - Existing scoring-rules and game-logic test suites passed.
 - Browser visual verification has not been performed in this run; confirm both themes, HUD centering, pointer/touch targeting, and Bomb selection in Live Server before release.
+
+
+## v3.07.6 — 2026-10-30 — Tile gloss and flip artifact follow-up
+
+### Changed
+- Reshaped the glossy tile highlight to follow an octagonal cap rather than an oval that clashes with the tile silhouette.
+- Added WebKit backface-visibility declarations and adjusted the flip's edge-on midpoint from 90° to 89° to reduce intermittent black compositing flashes while retaining the existing flip duration and sequence.
+
+### Verification
+- JavaScript syntax and automated tests are to be run against this package. Browser visual verification remains outstanding.
+
+## v3.07.8 — 2026-10-30 — Local vowel balancing
+
+### Added
+- Added local 3×3 vowel balancing across the top-left, top-right, center, bottom-left, and bottom-right blocks of the 5×5 board. Each block normally contains 2–6 vowels inclusive.
+- Added bounded candidate retries and per-draw relaxation when overlapping constraints cannot be satisfied.
+- Added deterministic tests for block definitions, center overlap, initial board generation, retry fallback and bag accounting, and Randomize candidate filtering.
+
+### Changed
+- Initial tile generation and ordinary word refills now validate the affected local blocks in addition to existing whole-board safeguards.
+- Randomize avoids candidate letters that violate the local constraint when a valid candidate exists.
+- Bumped the PWA cache to v14 so clients can load the updated balancing logic.
+
+### Preserved
+- Existing global vowel target (8–12), uncommon-consonant target (2–5), letter distribution, consonant balancing, repeated-letter soft cap, independent bag accounting, and bonus safeguards.
+- Rotate and Swap do not rebalance the board. Bomb's generated refill tiles bypass the local constraint to preserve its power-specific behavior. Wild Letter retains its special handling.
+
+### Verification
+- JavaScript syntax checks passed.
+- All six Node test suites passed.
+- Browser visual and Android gameplay testing remain outstanding.
+- Initial board generation now retries the whole board up to 12 times if the completed board violates any local block; each retry resets all Marble Bag state, and the bounded final attempt prevents an infinite startup loop.

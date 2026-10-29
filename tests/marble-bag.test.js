@@ -170,3 +170,59 @@ console.log('Marble Bag tests passed.');
   assert.match(uniform, /^[B-Z]$/);
   assert.notEqual(uniform, 'A');
 }
+
+// Local vowel balancing: the five overlapping 3x3 blocks use the agreed 2–6 range.
+{
+  const { LOCAL_VOWEL_BLOCKS, LOCAL_VOWEL_MIN, LOCAL_VOWEL_MAX, LOCAL_VOWEL_RETRY_LIMIT } = marbleBag.constants;
+  assert.equal(LOCAL_VOWEL_BLOCKS.length, 5);
+  assert.equal(LOCAL_VOWEL_MIN, 2);
+  assert.equal(LOCAL_VOWEL_MAX, 6);
+  assert.equal(LOCAL_VOWEL_RETRY_LIMIT, 20);
+  assert.deepEqual(LOCAL_VOWEL_BLOCKS.map((block) => block.length), [9, 9, 9, 9, 9]);
+  assert.equal(LOCAL_VOWEL_BLOCKS.filter((block) => block.includes(12)).length, 5, 'center tile belongs to all five overlapping blocks');
+}
+
+// Initial board generation respects the local range when constraints are satisfiable.
+{
+  const engine = marbleBag.createEngine({ random: () => 0.37 });
+  const board = makeBoard();
+  for (let index = 0; index < 25; index += 1) board[index] = engine.generateTile(board, index);
+  const counts = marbleBag.constants.LOCAL_VOWEL_BLOCKS.map((block) => block.reduce((sum, index) => sum + ('AEIOU'.includes(board[index].letter) ? 1 : 0), 0));
+  assert.deepEqual(counts, [3, 4, 3, 4, 3]);
+  assert.ok(counts.every((count) => count >= 2 && count <= 6));
+  assert.equal(engine.isLocalBoardBalanced(board), true);
+  assert.deepEqual(engine.getLocalBalanceStats(), { rejected: 0, relaxed: 0 });
+}
+
+// When overlapping local constraints are impossible, retry is bounded and rejected draws do not consume bags.
+{
+  const engine = marbleBag.createEngine({ random: () => 0.37 });
+  const board = makeBoard({ letter: 'T', bonus: 'NO' });
+  // Six vowels in top-left without center, and only one vowel in top-right without center.
+  [0, 1, 2, 5, 6, 7].forEach((index) => { board[index] = { letter: 'A', bonus: 'NO' }; });
+  [3, 4, 8, 9, 13, 14].forEach((index) => { board[index] = { letter: 'T', bonus: 'NO' }; });
+  board[12] = null;
+  const before = engine.getState();
+  engine.generateTile(board, 12);
+  const after = engine.getState();
+  assert.equal(engine.getLocalBalanceStats().rejected, marbleBag.constants.LOCAL_VOWEL_RETRY_LIMIT);
+  assert.equal(engine.getLocalBalanceStats().relaxed, 1);
+  assert.equal(after.vowelLetters.draws - before.vowelLetters.draws, 1, 'rejected attempts must not consume vowel-bag entries');
+  assert.equal(after.bonusTypes.draws - before.bonusTypes.draws, 1, 'rejected attempts must not consume bonus-bag entries');
+}
+
+// Randomize filters replacements against all local blocks touching the target when a valid option exists.
+{
+  const engine = marbleBag.createEngine({ random: () => 0.37 });
+  const board = Array.from({ length: 25 }, () => ({ letter: 'T', bonus: 'NO' }));
+  // Six vowels already occupy the top-left block except its target corner; a vowel there would make seven.
+  [1, 2, 5, 6, 7, 10].forEach((index) => { board[index] = { letter: 'A', bonus: 'NO' }; });
+  // Keep the other overlapping blocks within range so a consonant remains a valid choice.
+  [3, 15, 16, 18, 19].forEach((index) => { board[index] = { letter: 'E', bonus: 'NO' }; });
+  board[0] = { letter: 'T', bonus: 'NO' };
+  engine.returnLetter('T');
+  const replacement = engine.drawRandomizeLetter('T', 'weighted_bypass_cap', board, 0);
+  assert.ok(!'AEIOU'.includes(replacement), 'Randomize should avoid violating the local maximum when a valid consonant exists');
+}
+
+console.log('Local vowel balancing tests passed.');

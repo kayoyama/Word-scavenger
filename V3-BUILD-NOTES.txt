@@ -48,3 +48,26 @@ v3.05 hotfix (2026-10-26): Restored board tile interaction by fixing an over-bro
 v3.06 hotfix (2026-10-26): Added a picker-level fresh pointer-down gate to prevent the Wild Letter target-tile tap's trailing click from choosing a letter. Timers continue during tile targeting and pause only while the letter picker is open, resuming according to their prior running state. Updated changelog and authoritative scoring/timer rules to restore the v3.05 source-aligned timer rewards and 180-second cap. All six Node test suites pass; live browser/mobile touch testing remains pending.
 
 v3.07 (2026-10-26): Added bounded trajectory-aware tile resolution for ordinary drag selection. Samples are resolved against tile rectangles cached by current board index, tolerate a narrow gap around tile edges, prefer valid neighboring tiles, reject distant jumps, and preserve backtracking to previously selected tiles. Added deterministic resolver tests and bumped the PWA cache to v12. Syntax and all six Node test suites pass; browser and Android thumb-drag verification remain pending.
+
+
+v3.07.6 focused visual fix
+- Refined the tile gloss into an octagonal cap matching the tile silhouette.
+- Added WebKit backface-visibility support and changed the flip's edge-on midpoint from 90 to 89 degrees to reduce black compositing flashes while preserving flip timing and sequence.
+- Browser visual testing is still required.
+
+
+v3.07.7 focused flip artifact fix (2026-10-30)
+- Root cause: `.tile.bonus-hit::after` created a dark BONUS label while `.tile::after` was the new inset-edge treatment. The pseudo-element selector conflict made the label appear as a dark rectangular face during tile flip/bonus feedback.
+- Removed the conflicting label and Style 2 override; retained bonus outline/glow and the inset edge.
+- Restored the original 90-degree flip midpoint and removed v3.07.6 backface tweaks.
+- Automated tests and syntax checks run; live browser visual confirmation still required.
+
+v3.07.8 local vowel balancing (2026-10-30)
+- Added the proposed local 3×3 vowel safeguard to the existing Marble Bag System: each of the four corner blocks and center block normally stays between 2 and 6 vowels inclusive.
+- Initial board generation validates all five overlapping blocks as tiles are generated; ordinary word refills validate only blocks containing the replacement position.
+- Randomize filters replacement candidates against the affected local block(s) when at least one eligible letter can satisfy the constraint.
+- Rotate and Swap remain pure tile transformations. Bomb refill generation explicitly bypasses local balancing to preserve its power-specific behavior; Wild Letter remains a special tile and is not treated as a normal bag draw by local checks.
+- Candidate retries are bounded to 20. Rejected candidate draws restore all bag entries, draw counts, replenishment counts, and last-draw metadata; after retry exhaustion, the local constraint relaxes for that draw only. Existing global balancing rules remain unchanged.
+- Added deterministic coverage for the five block definitions, overlapping center membership, initial board constraints, bounded fallback/bag accounting, and Randomize filtering.
+- JavaScript syntax checks and all six Node test suites pass. Browser visual and Android interaction tests remain pending.
+- Initial board creation additionally retries the complete board up to 12 times when any final 3×3 block falls outside the 2–6 range; each full-board retry resets all independent bags. After the bounded board retries, gameplay starts with the final generated board rather than hanging.

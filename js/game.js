@@ -38,69 +38,9 @@
   const board = el('board');
   const selectionTrace = el('selection-trace');
   const boardStage = board ? board.closest('.board-stage') : null;
-  // Diagnostic controls for the experimental octagonal virtual touch regions.
-  // Visual tile shape is independent from this slider-controlled hit-test geometry.
-  let touchHitboxExpansionRatio = -0.08;
-  if (boardStage && board) {
-    const hitboxControls = document.createElement('div');
-    hitboxControls.id = 'hitbox-debug-controls';
-
-    const hitboxToggle = document.createElement('button');
-    hitboxToggle.id = 'hitbox-debug-toggle';
-    hitboxToggle.type = 'button';
-    hitboxToggle.textContent = 'Show hitbox overlay';
-    hitboxToggle.setAttribute('aria-pressed', 'false');
-    hitboxToggle.setAttribute('aria-label', 'Toggle visible octagonal tile hitboxes');
-    hitboxToggle.addEventListener('click', () => {
-      const enabled = document.body.classList.toggle('hitbox-debug');
-      hitboxToggle.textContent = enabled ? 'Hide hitbox overlay' : 'Show hitbox overlay';
-      hitboxToggle.setAttribute('aria-pressed', String(enabled));
-    });
-
-    const sliderLabel = document.createElement('label');
-    sliderLabel.id = 'hitbox-size-label';
-    sliderLabel.htmlFor = 'hitbox-size-slider';
-    sliderLabel.textContent = 'Hitbox adjustment: ';
-    const sliderValue = document.createElement('output');
-    sliderValue.id = 'hitbox-size-value';
-    sliderValue.value = '-8%';
-    sliderValue.textContent = '-8%';
-    sliderLabel.appendChild(sliderValue);
-
-    const slider = document.createElement('input');
-    slider.id = 'hitbox-size-slider';
-    slider.type = 'range';
-    slider.min = '-8';
-    slider.max = '16';
-    slider.step = '1';
-    slider.value = '-8';
-    slider.setAttribute('aria-label', 'Hitbox size adjustment percentage per side; negative shrinks, positive expands');
-    slider.setAttribute('aria-describedby', 'hitbox-size-value');
-    slider.addEventListener('input', () => {
-      const percent = Number(slider.value);
-      touchHitboxExpansionRatio = percent / 100;
-      sliderValue.value = `${percent}%`;
-      sliderValue.textContent = `${percent}%`;
-      document.documentElement.style.setProperty('--hitbox-expansion', `${percent}%`);
-    });
-
-    const sliderHelp = document.createElement('span');
-    sliderHelp.id = 'hitbox-size-help';
-    sliderHelp.textContent = 'per side · −8% shrinks · 0% = visible tile · +16% expands';
-    hitboxControls.append(hitboxToggle, sliderLabel, slider, sliderHelp);
-    hitboxControls.setAttribute('aria-label', 'Hitbox testing settings');
-    const pauseCard = document.querySelector('#pause-overlay .pause-card');
-    if (pauseCard) {
-      const settingsHeading = document.createElement('h3');
-      settingsHeading.className = 'hitbox-settings-heading';
-      settingsHeading.textContent = 'Input testing';
-      pauseCard.insertBefore(settingsHeading, document.getElementById('bag-inspector-toggle'));
-      pauseCard.insertBefore(hitboxControls, document.getElementById('bag-inspector-toggle'));
-    } else {
-      boardStage.insertAdjacentElement('afterend', hitboxControls);
-    }
-    document.documentElement.style.setProperty('--hitbox-expansion', '-8%');
-  }
+  // Signed hitbox adjustment: -7% contracts each tile's virtual target per side.
+  // Kept as a parameter so it can be tuned without exposing a gameplay control.
+  const touchHitboxExpansionRatio = -0.07;
   let pointerTracePoints = [];
   let rotateCenterOverlay = null;
   let rotateCenterOriginal = null;
@@ -756,7 +696,7 @@
     // Keep the old board in place for the explosion; mutate/refill only after it finishes.
     scheduleRefillTimer(() => {
       // New tiles entering from above receive independently random letters and no inherited bonus.
-      const bombResult = gameLogic.bombClearAndGravity(tiles, SIZE, row, col, (destinationIndex, projectedBoard) => generateMarbleTile(projectedBoard, destinationIndex));
+      const bombResult = gameLogic.bombClearAndGravity(tiles, SIZE, row, col, (destinationIndex, projectedBoard) => generateMarbleTile(projectedBoard, destinationIndex, { skipLocalVowelBalance: true }));
       tiles = bombResult.tiles;
       publishMarbleBagSnapshot(tiles);
       // Only tiles above the explosion cascade down. Rows below the 2×2 target
@@ -1031,7 +971,7 @@
     // consume extra bag entries. The same letter is allowed to be drawn again.
     const outgoingLetter = tiles[index].letter;
     marbleBag.returnLetter(outgoingLetter);
-    const finalLetter = marbleBag.drawRandomizeLetter(outgoingLetter, RANDOMIZE_LETTER_MODE);
+    const finalLetter = marbleBag.drawRandomizeLetter(outgoingLetter, RANDOMIZE_LETTER_MODE, tiles, index);
     const replacementLetters = [marbleBag.previewLetter(), marbleBag.previewLetter(), finalLetter];
 
     // Three quick flips make the letter shuffle visible without a separate animation system.
@@ -1279,10 +1219,16 @@
     stopTimers();
     cancelRefillSequence();
     marbleBag = marbleBagFactory.createEngine();
-    tiles = new Array(SIZE * SIZE).fill(null);
-    for (let index = 0; index < SIZE * SIZE; index += 1) {
-      const tile = generateMarbleTile(tiles, index);
-      tiles[index] = tile;
+    // Retry the initial board as a whole if a per-draw local relaxation leaves any
+    // 3×3 block outside the target range. Every retry resets all independent bags.
+    const INITIAL_BOARD_ATTEMPTS = 12;
+    for (let boardAttempt = 0; boardAttempt < INITIAL_BOARD_ATTEMPTS; boardAttempt += 1) {
+      tiles = new Array(SIZE * SIZE).fill(null);
+      for (let index = 0; index < SIZE * SIZE; index += 1) {
+        tiles[index] = marbleBag.generateTile(tiles, index);
+      }
+      if (marbleBag.isLocalBoardBalanced(tiles) || boardAttempt === INITIAL_BOARD_ATTEMPTS - 1) break;
+      marbleBag.reset();
     }
     publishMarbleBagSnapshot(tiles);
     selectedIndices = [];
