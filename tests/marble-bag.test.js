@@ -177,7 +177,7 @@ console.log('Marble Bag tests passed.');
   assert.equal(LOCAL_VOWEL_BLOCKS.length, 5);
   assert.equal(LOCAL_VOWEL_MIN, 2);
   assert.equal(LOCAL_VOWEL_MAX, 6);
-  assert.equal(LOCAL_VOWEL_RETRY_LIMIT, 20);
+  assert.equal(LOCAL_VOWEL_RETRY_LIMIT, 3);
   assert.deepEqual(LOCAL_VOWEL_BLOCKS.map((block) => block.length), [9, 9, 9, 9, 9]);
   assert.equal(LOCAL_VOWEL_BLOCKS.filter((block) => block.includes(12)).length, 5, 'center tile belongs to all five overlapping blocks');
 }
@@ -226,3 +226,22 @@ console.log('Marble Bag tests passed.');
 }
 
 console.log('Local vowel balancing tests passed.');
+
+// New initial generation and diagnostics APIs: center-first regions, bounded retries, and read-only history.
+{
+  let seed = 17;
+  const engine = marbleBag.createEngine({ random: () => { seed = (seed * 48271) % 2147483647; return seed / 2147483647; } });
+  const generated = engine.generateInitialBoard();
+  assert.equal(generated.board.length, 25);
+  assert.ok(generated.board.every(Boolean));
+  assert.equal(generated.regions[0].region, 'center', 'initial generation begins with the center block');
+  assert.ok(generated.regions.every((region) => region.attempt <= 3), 'each region uses at most three attempts');
+  assert.equal(marbleBag.constants.LOCAL_VOWEL_RETRY_LIMIT, 3);
+  assert.ok(engine.getInitialDrawStory().length >= 25, 'initial draw history records actual generation events');
+  const historyBefore = engine.getRecentBalanceStory();
+  const bagBefore = engine.getState();
+  engine.getInitialDrawStory();
+  engine.getRecentBalanceStory();
+  assert.deepEqual(engine.getState(), bagBefore, 'reading diagnostic histories is read-only');
+  assert.deepEqual(engine.getRecentBalanceStory(), historyBefore);
+}

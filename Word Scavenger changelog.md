@@ -1,3 +1,16 @@
+## [v3.08.1] - 2026-10-30
+
+### Changed
+- Added direct access to Marble Preview & Draw Stories inside the Pause Game menu.
+- Embedded the three-tab diagnostic experience in the paused game instead of requiring a separate page.
+- Initial Draw Story and Recent Local Balance Story now show an actual 3×3 region visualization when recorded board snapshots are available.
+- Newly drawn tiles, protected/shared tiles, and unchanged tiles have distinct visual treatments.
+- Added board snapshots and drawn/protected position metadata to generation and balancing diagnostic events.
+
+### Fixed
+- Opening the diagnostic panel refreshes its read-only snapshot without consuming or changing Marble Bag entries.
+- Closing the diagnostic panel and resuming or leaving the game correctly hides the embedded panel.
+
 ## v3.07.5 — 2026-10-30 — Hitbox tuning and octagonal tile refinement
 
 ### Changed
@@ -824,3 +837,42 @@ The history available for this update includes the changelog source, a Classic M
 ### Verification
 - JavaScript syntax and automated Node test suites checked after the CSS-only correction.
 - ZIP integrity checked. Live browser reproduction/visual confirmation remains outstanding.
+
+
+## [3.08.0] - 2026-10-30
+
+### Added
+- Added center-first initial board generation: center 3×3 followed by the four corner regions.
+- Added Initial Draw Story and Recent Local Balance Story diagnostics, retaining the latest 30 actual balance decisions.
+- Added read-only three-tab Marble Bag Preview: Initial Draw Story, Recent Local Balance Story, and the existing Marble Preview.
+
+### Changed
+- Reduced local vowel-validation retries from 20 to 3 per replacement draw and 3 attempts per initial region.
+- Integrated local 3×3 validation into Bomb replacement draws while preserving Bomb gravity, cascade, and landing-bonus behavior.
+- Included initial-generation and recent balance histories in the game's diagnostic snapshot.
+
+### Fixed
+- Rejected local-balance candidates restore bag contents, draw counters, replenishment counters, and last-draw metadata before retrying.
+
+### Performance / Refactoring
+- Kept the existing Marble Bag hierarchy, forced selector-bypass draws, sub-bag availability behavior, effective probability calculation, and Wild Letter special behavior.
+- Bumped the PWA cache version so updated game and preview assets are refreshed.
+
+
+## v3.08.2 — 2026-10-30 — Integrated 3×3 draw history
+
+### Added
+- Added a native **3×3 Draw History** panel accessible from the existing Pause Menu.
+- Added **Initial Board Generation** stage cards in actual generation order: Center, Top-left, Top-right, Bottom-left, and Bottom-right. Each card shows the corresponding 3×3 snapshot, with newly drawn positions highlighted.
+- Added **Recent Local Balance** cards showing recent affected 3×3 regions after a draw, including the changed position and concise retry/relaxation status.
+
+### Changed
+- Replaced the separate `marble-bag-preview.html` iframe workflow with an integrated in-game view.
+- Kept Initial Board Generation and Recent Local Balance as separate, simultaneously visible sections. Neither section is collapsible.
+- The history displays 3×3 draw snapshots only; it does not expose a per-letter draw log.
+- Removed `marble-bag-preview.html` from the delivered project package and bumped the PWA cache version to v17.
+
+### Verification
+- JavaScript syntax checks passed for `js/game.js` and `js/marble-bag.js`.
+- All existing Node test suites passed, with an additional source-level test for the integrated draw-history UI.
+- Browser visual testing and Android device verification remain outstanding.

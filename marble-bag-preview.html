@@ -46,15 +46,53 @@
     .snapshot-banner strong { color: #9ce6b0; }
     .snapshot-banner.stale { border-color: #876a35; background: #302818; }
     .snapshot-banner.stale strong { color: #f5d28a; }
+    .tabbar { display:flex; gap:8px; flex-wrap:wrap; margin:18px 0 8px; border-bottom:1px solid #29496e; padding-bottom:10px; }
+    .tabbar button[aria-selected="true"] { background:#087da9; border-color:#52c8f2; box-shadow:0 0 0 1px #52c8f2 inset; }
+    .tab-panel[hidden] { display:none; }
+    .story-list { display:grid; gap:10px; }
+    .story-card { border:1px solid #2c4a6c; border-radius:12px; padding:12px; background:#0a1f39; }
+    .story-card summary { cursor:pointer; font-weight:800; }
+    .story-meta { color:#9eb4d0; font-size:.78rem; margin:6px 0; }
+    .story-detail { white-space:pre-wrap; overflow-wrap:anywhere; font-size:.84rem; line-height:1.55; color:#d7e7fa; margin-top:10px; }
+    .status { display:inline-block; border-radius:99px; padding:3px 8px; background:#173d69; color:#c9eaff; font-size:.7rem; font-weight:800; margin-left:6px; }
+    .empty-story { border:1px dashed #426080; border-radius:12px; padding:18px; color:#9eb4d0; text-align:center; }
     @media (max-width: 760px) { body { padding: 12px; } .layout { grid-template-columns: 1fr; } .bags { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 390px) { .bags { grid-template-columns: 1fr; } .panel { padding: 12px; } }
+
+    .story-region-wrap{margin:12px 0;padding:12px;border:1px solid #294c76;border-radius:14px;background:linear-gradient(145deg,#102b4b,#0a1e36)}
+    .story-region-title{font-weight:750;text-transform:capitalize;margin-bottom:9px;color:#eaf3ff}
+    .story-region-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;max-width:340px}
+    .story-region-cell{aspect-ratio:1.18;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid #40516a;border-radius:9px;background:#26364a;color:#eaf3ff;min-width:0}
+    .story-region-cell strong{font-size:clamp(1.05rem,4vw,1.5rem);line-height:1.1}
+    .story-region-cell small{font-size:.55rem;letter-spacing:.04em;color:#b8c6d8;margin-top:3px}
+    .story-region-cell.is-drawn{background:#123e70;border-color:#38a2ff;box-shadow:inset 0 0 0 1px #38a2ff}
+    .story-region-cell.is-protected{background:#59451d;border-color:#e5b94b}
+    .story-region-legend{font-size:.72rem;color:#aebed2;margin-top:8px}
+    .story-card summary{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .story-card summary .status{margin-left:auto}
+    @media(max-width:500px){.story-region-grid{max-width:100%;gap:4px}.story-region-cell{border-radius:7px}}
+
   </style>
   <script src="js/marble-bag.js"></script>
 </head>
 <body>
 <main>
   <h1>Marble Bag Explorer</h1>
-  <p class="muted">Live preview of the same bag engine used by Word Scavenger v3. This is a diagnostic page; it does not modify the game or its saved statistics.</p>
+  <p class="muted">Read-only diagnostics for the current round: initial draw history, the latest 30 balancing decisions, and the existing Marble Preview. Inspecting these tabs never consumes or changes bag entries.</p>
+  <div class="tabbar" role="tablist" aria-label="Marble Preview views">
+    <button type="button" role="tab" id="tab-initial" aria-selected="false" aria-controls="panel-initial">Initial Draw Story</button>
+    <button type="button" role="tab" id="tab-recent" aria-selected="false" aria-controls="panel-recent">Recent Local Balance Story</button>
+    <button type="button" role="tab" id="tab-preview" aria-selected="true" aria-controls="panel-preview">Marble Preview</button>
+  </div>
+  <section class="panel tab-panel" id="panel-initial" role="tabpanel" hidden>
+    <h2>Initial Draw Story</h2><p class="muted">Generation decisions for the current round, in draw order. This is recorded game history, not a reconstructed simulation.</p>
+    <div id="initial-story" class="story-list"><div class="empty-story">No initial draw history is available. Start a new round, then reload this preview.</div></div>
+  </section>
+  <section class="panel tab-panel" id="panel-recent" role="tabpanel" hidden>
+    <h2>Recent Local Balance Story</h2><p class="muted">The latest 30 actual balance decisions, newest first. Expand an entry to inspect candidate outcome, attempts, affected regions, and before/after counts.</p>
+    <div id="recent-story" class="story-list"><div class="empty-story">No recent balance decisions are available yet.</div></div>
+  </section>
+  <div class="tab-panel" id="panel-preview" role="tabpanel">
   <div class="controls">
     <button class="primary" id="draw-next">Draw next tile (simulation)</button>
     <button id="generate-board">Generate simulated board</button>
@@ -88,6 +126,7 @@
       <div class="bag"><h3>Game-state storage</h3><small>Active bags live in memory and are reset for each new round. This preview does not use localStorage.</small></div>
     </div>
   </section>
+  </div>
 </main>
 <script>
   (() => {
@@ -170,6 +209,83 @@
         card.append(heading, count, detail, progress); container.append(card);
       });
     }
+    function safeText(value) { return value === undefined || value === null ? '—' : String(value); }
+    function renderStoryList(containerId, events, kind) {
+      const container = $(containerId); container.replaceChildren();
+      if (!Array.isArray(events) || !events.length) {
+        const empty = document.createElement('div'); empty.className = 'empty-story';
+        empty.textContent = kind === 'initial' ? 'No initial draw history is available. Start a new round, then reload this preview.' : 'No recent balance decisions are available yet.';
+        container.append(empty); return;
+      }
+      events.forEach((event, index) => {
+        const card = document.createElement('details'); card.className = 'story-card';
+        const summary = document.createElement('summary');
+        const operation = safeText(event.operation || event.phase || 'Draw');
+        const position = Number.isInteger(event.position) ? ` · Row ${Math.floor(event.position / 5) + 1}, Col ${(event.position % 5) + 1}` : '';
+        summary.textContent = `${kind === 'initial' ? `Draw ${event.sequence || index + 1}` : new Date(event.at || Date.now()).toLocaleTimeString()} · ${operation}${position}`;
+        const status = document.createElement('span'); status.className = 'status'; status.textContent = event.relaxed ? 'LOCAL RELAXED' : (event.rejected ? 'RETRIED' : 'ACCEPTED'); summary.append(status);
+        const meta = document.createElement('div'); meta.className = 'story-meta';
+        meta.textContent = `${event.accepted === false || event.relaxed ? 'Local constraint not met' : 'Validation passed'} · Attempts: ${safeText(event.attempt || event.attempts)} · Rejected: ${safeText(event.rejected)}`;
+        const detail = document.createElement('div'); detail.className = 'story-detail';
+        const regionNames = ['top-left','top-right','center','bottom-left','bottom-right'];
+        const regionCells = {
+          'top-left':[0,1,2,5,6,7,10,11,12],
+          'top-right':[2,3,4,7,8,9,12,13,14],
+          'center':[6,7,8,11,12,13,16,17,18],
+          'bottom-left':[10,11,12,15,16,17,20,21,22],
+          'bottom-right':[12,13,14,17,18,19,22,23,24]
+        };
+        const boardSnapshot = Array.isArray(event.boardSnapshot) ? event.boardSnapshot : null;
+        const regionName = String(event.region || event.phase || (event.affectedRegions?.length ? regionNames[event.affectedRegions[0]-1] : ''));
+        const cells = regionCells[regionName];
+        if (boardSnapshot && cells) {
+          const visual = document.createElement('div'); visual.className = 'story-region-wrap';
+          const visualTitle = document.createElement('div'); visualTitle.className = 'story-region-title';
+          visualTitle.textContent = `${regionName.replace('-', ' ')} · 3 × 3`;
+          const grid = document.createElement('div'); grid.className = 'story-region-grid';
+          const drawn = new Set(event.drawnPositions || event.positions || (Number.isInteger(event.position) ? [event.position] : []));
+          const protectedSet = new Set(event.protectedPositions || []);
+          cells.forEach((boardIndex) => {
+            const tile = boardSnapshot[boardIndex];
+            const cell = document.createElement('div');
+            cell.className = 'story-region-cell' + (drawn.has(boardIndex) ? ' is-drawn' : (protectedSet.has(boardIndex) ? ' is-protected' : ''));
+            const letter = document.createElement('strong'); letter.textContent = tile?.letter || '·';
+            const row = document.createElement('small'); row.textContent = drawn.has(boardIndex) ? 'DRAWN' : (protectedSet.has(boardIndex) ? 'LOCKED' : 'KEPT');
+            cell.append(letter,row); grid.append(cell);
+          });
+          visual.append(visualTitle,grid);
+          const legend = document.createElement('div'); legend.className = 'story-region-legend';
+          legend.textContent = 'Blue: newly drawn · Gold: protected/shared · Grey: unchanged';
+          visual.append(legend); card.append(visual);
+        }
+        const localBefore = Array.isArray(event.localBefore) ? event.localBefore.map((v,i)=>`R${i+1}:${v}`).join('  ') : '—';
+        const localAfter = Array.isArray(event.localAfter) ? event.localAfter.map((v,i)=>`R${i+1}:${v}`).join('  ') : '—';
+        const draw = event.draw || {};
+        const lines = [
+          `Affected regions: ${(event.affectedRegions || []).map((n)=>`R${n}`).join(', ') || '—'}`,
+          `Local vowels before: ${localBefore}`,
+          `Local vowels after:  ${localAfter}`,
+          `Global before: ${event.globalBefore ? `${event.globalBefore.vowels} vowels / ${event.globalBefore.uncommon} uncommon` : '—'}`,
+          `Global after:  ${event.globalAfter ? `${event.globalAfter.vowels} vowels / ${event.globalAfter.uncommon} uncommon` : '—'}`,
+          `Rejected candidates: ${(event.rejectedCandidates || []).map((candidate) => `${candidate.letter} — ${candidate.reason}`).join('; ') || 'None recorded'}`,
+          `Accepted letter: ${safeText(event.acceptedLetter)}`,
+          `Draw source: ${draw.letter ? `${draw.letter.categorySource}; ${draw.letter.groupSource || draw.letter.group || 'letter bag'}; ${draw.letter.letterCapSource || ''}` : '—'}`,
+          `Bag restoration: ${event.rejected ? 'Rejected candidates restored before retry' : 'No rejected candidate restoration recorded'}`
+        ];
+        detail.textContent = lines.join('\n');
+        card.append(summary, meta, detail); container.append(card);
+      });
+    }
+    function showTab(name) {
+      ['initial','recent','preview'].forEach((tab) => {
+        const active = tab === name;
+        $(`tab-${tab}`).setAttribute('aria-selected', String(active));
+        $(`tab-${tab}`).tabIndex = active ? 0 : -1;
+        $(`panel-${tab}`).hidden = !active;
+      });
+    }
+    ['initial','recent','preview'].forEach((tab) => $(`tab-${tab}`).addEventListener('click', () => showTab(tab)));
+
     function loadSnapshot() {
       try {
         const raw = localStorage.getItem(SNAPSHOT_KEY);
@@ -180,6 +296,8 @@
       render();
     }
     function render() {
+      renderStoryList('initial-story', gameSnapshot?.initialDrawStory || [], 'initial');
+      renderStoryList('recent-story', gameSnapshot?.recentBalanceStory || [], 'recent');
       const banner = $('snapshot-banner');
       if (showingGameSnapshot && gameSnapshot) {
         const stamp = new Date(gameSnapshot.updatedAt);

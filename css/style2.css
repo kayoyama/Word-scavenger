@@ -656,3 +656,26 @@ body.theme-style2 .wild-letter-tile .tile-value { color: #102b55 !important; tex
 .board-summary-metrics small { color: #a9c6e8; font-size: .75rem; }
 .bag-probability-chip { display: inline-flex; gap: 4px; padding: 5px 7px; margin: 2px; border-radius: 6px; background: rgba(120,170,220,.12); font-size: .8rem; }
 @media (max-width: 560px) { .board-summary-metrics { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+
+
+/* Integrated 3x3 draw history inside the Pause Menu */
+
+
+.marble-story-panel{margin-top:12px;padding:12px;border:1px solid rgba(70,150,255,.28);border-radius:16px;background:rgba(5,20,42,.96);max-height:min(74vh,780px);overflow:auto;text-align:left}
+.marble-story-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;color:var(--text-primary,#fff)}
+.marble-story-heading h3{margin:0;font-size:1rem}
+.pause-card:has(.marble-story-panel:not([hidden])){width:min(96vw,900px);max-width:900px;max-height:94vh;overflow:auto}
+.draw-story-section{margin:14px 0 18px}
+.draw-story-section h4{margin:0 0 9px;color:#ffdc5b;font-size:.95rem}
+.draw-story-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.draw-story-card{min-width:0;padding:10px;border:1px solid rgba(130,175,235,.28);border-radius:12px;background:rgba(13,39,72,.92)}
+.draw-story-card-heading{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;color:#f5f8ff;font-size:.78rem}
+.draw-story-card-heading span,.draw-story-detail{color:#b9cbe2;font-size:.7rem}
+.draw-story-board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;max-width:220px;margin:0 auto}
+.draw-story-cell{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;border:1px solid rgba(255,255,255,.24);border-radius:5px;background:#e8edf4;color:#12233b;font-size:1rem}
+.draw-story-cell strong{font-size:1.05rem;line-height:1.1}
+.draw-story-cell small{font-size:.48rem;font-weight:700;line-height:1.1}
+.draw-story-cell.is-drawn{outline:2px solid #ffdc5b;outline-offset:-2px;background:#ffe9a6;color:#17243a}
+.draw-story-detail{margin:8px 0 0;text-align:center}
+.draw-story-empty{margin:8px 0;color:#b9cbe2;font-size:.8rem}
+@media(max-width:600px){.marble-story-panel{padding:8px}.pause-card:has(.marble-story-panel:not([hidden])){width:96vw}.draw-story-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}

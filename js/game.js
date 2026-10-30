@@ -203,57 +203,25 @@
 
   function randomInt(max) { return Math.floor(Math.random() * max) + 1; }
 
-  // Diagnostic snapshot lets marble-bag-preview.html inspect the active game's
-  // current bag counts after a refresh. This is telemetry only; it does not restore
-  // or alter the active game's in-memory bags.
-  const MARBLE_BAG_DEBUG_KEY = 'wordScavengerMarbleBagDebugSnapshot';
-  function publishMarbleBagSnapshot(boardState = tiles, lastTile = null) {
-    if (!marbleBag) return;
-    try {
-      const snapshotBoard = Array.isArray(boardState) ? boardState.map((tile) => tile ? {
-        letter: tile.letter,
-        bonus: tile.bonus || 'NO',
-        isWildLetter: Boolean(tile.isWildLetter),
-        isAnchored: Boolean(tile.isAnchored)
-      } : null) : [];
-      if (lastTile && Number.isInteger(lastTile.index) && lastTile.index >= 0 && lastTile.index < snapshotBoard.length) {
-        snapshotBoard[lastTile.index] = {
-          letter: lastTile.tile.letter,
-          bonus: lastTile.tile.bonus || 'NO',
-          isWildLetter: Boolean(lastTile.tile.isWildLetter),
-          isAnchored: Boolean(lastTile.tile.isAnchored)
-        };
-      }
-      localStorage.setItem(MARBLE_BAG_DEBUG_KEY, JSON.stringify({
-        version: 1,
-        updatedAt: new Date().toISOString(),
-        roundActive,
-        isPaused,
-        bags: marbleBag.getState(),
-        lastDraw: marbleBag.getLastDraw(),
-        board: snapshotBoard
-      }));
-    } catch (error) {
-      // Private browsing or disabled storage must never interrupt gameplay.
-    }
-  }
-
   // Marble Bag owns all random tile generation. Rendering and animations remain in game.js.
   function drawLetter(boardState = tiles, targetIndex = -1) {
     const letter = marbleBag.drawLetter(boardState, targetIndex);
-    publishMarbleBagSnapshot(boardState);
+
+
     return letter;
   }
 
   function drawBonus(boardState = tiles, targetIndex = -1) {
     const bonus = marbleBag.drawBonus(boardState, targetIndex);
-    publishMarbleBagSnapshot(boardState);
+
+
     return bonus;
   }
 
   function generateMarbleTile(boardState, targetIndex, tileOptions = {}) {
     const tile = marbleBag.generateTile(boardState, targetIndex, tileOptions);
-    publishMarbleBagSnapshot(boardState, { index: targetIndex, tile });
+
+
     return tile;
   }
 
@@ -696,9 +664,10 @@
     // Keep the old board in place for the explosion; mutate/refill only after it finishes.
     scheduleRefillTimer(() => {
       // New tiles entering from above receive independently random letters and no inherited bonus.
-      const bombResult = gameLogic.bombClearAndGravity(tiles, SIZE, row, col, (destinationIndex, projectedBoard) => generateMarbleTile(projectedBoard, destinationIndex, { skipLocalVowelBalance: true }));
+      const bombResult = gameLogic.bombClearAndGravity(tiles, SIZE, row, col, (destinationIndex, projectedBoard) => generateMarbleTile(projectedBoard, destinationIndex, { operation: 'bomb refill' }));
       tiles = bombResult.tiles;
-      publishMarbleBagSnapshot(tiles);
+
+
       // Only tiles above the explosion cascade down. Rows below the 2×2 target
       // remain untouched. Each tile landing in the explosion compares its bonus
       // against that exact destination's exploded bonus; never recolor whole columns.
@@ -988,7 +957,8 @@
           if (!current) return;
           // Keep bonus metadata (and therefore its theme-specific color) unchanged.
           tiles[index] = gameLogic.withRandomizedLetter(current, replacementLetters[flip]);
-          publishMarbleBagSnapshot(tiles);
+
+
           updateTileElement(index);
           const updated = board.querySelector(`[data-index="${index}"]`);
           if (updated) updated.classList.add('tile-flip', 'action-tile-flip');
@@ -1091,7 +1061,7 @@
       generatedByIndex.set(index, newTile);
       projectedBoard[index] = newTile;
     });
-    publishMarbleBagSnapshot(projectedBoard);
+
 
     indices.forEach((index, position) => {
       const startDelay = position * staggerMs;
@@ -1197,7 +1167,8 @@
         return;
       }
       tiles[index].bonus = bonusType;
-      publishMarbleBagSnapshot(tiles);
+
+
       updateTileElement(index);
       const updatedElement = board.querySelector(`[data-index="${index}"]`);
       if (updatedElement) updatedElement.classList.add('long-word-bonus-transform', 'tile-refill-locked');
@@ -1219,18 +1190,12 @@
     stopTimers();
     cancelRefillSequence();
     marbleBag = marbleBagFactory.createEngine();
-    // Retry the initial board as a whole if a per-draw local relaxation leaves any
-    // 3×3 block outside the target range. Every retry resets all independent bags.
-    const INITIAL_BOARD_ATTEMPTS = 12;
-    for (let boardAttempt = 0; boardAttempt < INITIAL_BOARD_ATTEMPTS; boardAttempt += 1) {
-      tiles = new Array(SIZE * SIZE).fill(null);
-      for (let index = 0; index < SIZE * SIZE; index += 1) {
-        tiles[index] = marbleBag.generateTile(tiles, index);
-      }
-      if (marbleBag.isLocalBoardBalanced(tiles) || boardAttempt === INITIAL_BOARD_ATTEMPTS - 1) break;
-      marbleBag.reset();
-    }
-    publishMarbleBagSnapshot(tiles);
+    // Generate center-first, then complete each overlapping corner region.
+    // The Marble Bag hierarchy and its global forced/bypass safeguards remain authoritative.
+    const initialGeneration = marbleBag.generateInitialBoard();
+    tiles = initialGeneration.board;
+
+
     selectedIndices = [];
     isSelecting = false;
     actionBusy = false;
@@ -2067,7 +2032,8 @@
     el('pause-overlay').hidden = false;
     el('pause-button').textContent = '▶';
     el('pause-button').setAttribute('aria-label', 'Resume game');
-    publishMarbleBagSnapshot(tiles);
+
+
     el('resume-button').focus();
   }
   function resumeGame() {
@@ -2075,20 +2041,24 @@
     isPaused = false;
     el('pause-overlay').hidden = true;
     toggleLiveBagInspector(false);
+    toggleMarbleStory(false);
     timerId = window.setInterval(tick, 1000);
     resumeChronoComboTimer(pausedComboTimer);
     pausedComboTimer = false;
     el('pause-button').textContent = 'Ⅱ';
     el('pause-button').setAttribute('aria-label', 'Pause game');
-    publishMarbleBagSnapshot(tiles);
+
+
     el('pause-button').focus();
   }
   function returnToMenu() {
     isPaused = false;
     el('pause-overlay').hidden = true;
     toggleLiveBagInspector(false);
+    toggleMarbleStory(false);
     roundActive = false;
-    publishMarbleBagSnapshot(tiles);
+
+
     hideChronoCombo();
     stopTimers();
     cancelPowerModes();
@@ -2097,6 +2067,72 @@
   }
   el('pause-button').addEventListener('click', () => isPaused ? resumeGame() : pauseGame());
   el('bag-inspector-toggle').addEventListener('click', () => toggleLiveBagInspector());
+  const marbleStoryPanel = el('marble-story-panel');
+  const marbleStoryToggle = el('marble-story-toggle');
+  const marbleStoryClose = el('marble-story-close');
+  const LOCAL_STORY_REGIONS = [
+    { name: 'Top-left corner', number: 1, positions: [0,1,2,5,6,7,10,11,12] },
+    { name: 'Top-right corner', number: 2, positions: [2,3,4,7,8,9,12,13,14] },
+    { name: 'Center', number: 3, positions: [6,7,8,11,12,13,16,17,18] },
+    { name: 'Bottom-left corner', number: 4, positions: [10,11,12,15,16,17,20,21,22] },
+    { name: 'Bottom-right corner', number: 5, positions: [12,13,14,17,18,19,22,23,24] }
+  ];
+  function renderDrawStoryCard(title, region, snapshot, changedPositions = [], detail = '') {
+    const changed = new Set(changedPositions || []);
+    const cells = region.positions.map((boardIndex) => {
+      const tile = Array.isArray(snapshot) ? snapshot[boardIndex] : null;
+      const letter = tile && tile.letter ? escapeHtml(String(tile.letter)) : '·';
+      const bonus = tile && tile.bonus && tile.bonus !== 'NO' ? `<small>${escapeHtml(String(tile.bonus))}</small>` : '';
+      return `<div class="draw-story-cell${changed.has(boardIndex) ? ' is-drawn' : ''}"><strong>${letter}</strong>${bonus}</div>`;
+    }).join('');
+    const vowels = region.positions.reduce((count, index) => {
+      const tile = Array.isArray(snapshot) ? snapshot[index] : null;
+      return count + (tile && !tile.isWildLetter && 'AEIOU'.includes(String(tile.letter || '').toUpperCase()) ? 1 : 0);
+    }, 0);
+    return `<article class="draw-story-card"><div class="draw-story-card-heading"><strong>${escapeHtml(title)}</strong><span>${vowels}/9 vowels</span></div><div class="draw-story-board" aria-label="${escapeHtml(region.name)} 3 by 3 draw">${cells}</div>${detail ? `<p class="draw-story-detail">${escapeHtml(detail)}</p>` : ''}</article>`;
+  }
+  function renderMarbleDrawStories() {
+    if (!marbleBag) return;
+    const initialTarget = el('initial-draw-stages');
+    const recentTarget = el('recent-local-stages');
+    if (!initialTarget || !recentTarget) return;
+    const initialEvents = marbleBag.getInitialDrawStory().filter((event) => event.operation === 'region attempt' && (event.accepted || event.attempt >= 3));
+    const orderedInitial = initialEvents.slice().sort((a, b) => a.sequence - b.sequence);
+    initialTarget.innerHTML = orderedInitial.length ? orderedInitial.map((event, index) => {
+      const region = LOCAL_STORY_REGIONS.find((item) => item.name.toLowerCase().replace(' corner', '') === String(event.region || '').toLowerCase()) || LOCAL_STORY_REGIONS.find((item) => item.name.toLowerCase().startsWith(String(event.region || '').toLowerCase()));
+      if (!region) return '';
+      const title = `Stage ${index + 1} — ${region.name}`;
+      const status = event.accepted ? `Accepted on attempt ${event.attempt}` : `Constraint relaxed after ${event.attempt} attempts`;
+      return renderDrawStoryCard(title, region, event.boardSnapshot, event.positions || [], status);
+    }).join('') : '<p class="draw-story-empty">Initial generation history is not available yet.</p>';
+
+    const recentEvents = marbleBag.getRecentBalanceStory().filter((event) =>
+      Array.isArray(event.affectedRegions) && event.affectedRegions.length && Array.isArray(event.boardSnapshot) &&
+      !['initial draw', 'global correction', 'initial region attempt', 'initial region relaxed'].includes(event.operation)
+    ).slice(0, 15);
+    recentTarget.innerHTML = recentEvents.length ? recentEvents.map((event) => {
+      return event.affectedRegions.map((regionNumber) => {
+        const region = LOCAL_STORY_REGIONS.find((item) => item.number === regionNumber);
+        if (!region) return '';
+        const time = event.at ? new Date(event.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+        const title = `${region.name} · ${time}`;
+        const changed = Number.isInteger(event.position) ? [event.position] : (event.drawnPositions || []);
+        const detail = `${event.operation || 'Draw'}${event.rejected ? ` · ${event.rejected} rejected` : ''}${event.relaxed ? ' · constraint relaxed' : ''}`;
+        return renderDrawStoryCard(title, region, event.boardSnapshot, changed, detail);
+      }).join('');
+    }).join('') : '<p class="draw-story-empty">No local-balance draw events recorded yet.</p>';
+  }
+  function toggleMarbleStory(forceOpen) {
+    if (!marbleStoryPanel || !marbleStoryToggle) return;
+    const open = typeof forceOpen === 'boolean' ? forceOpen : marbleStoryPanel.hidden;
+    marbleStoryPanel.hidden = !open;
+    marbleStoryToggle.setAttribute('aria-expanded', String(open));
+    marbleStoryToggle.textContent = open ? 'Hide 3×3 Draw History' : '3×3 Draw History';
+    if (open) renderMarbleDrawStories();
+  }
+  marbleStoryToggle?.addEventListener('click', () => toggleMarbleStory());
+  marbleStoryClose?.addEventListener('click', () => toggleMarbleStory(false));
+
   el('bag-inspector-refresh').addEventListener('click', renderLiveBagInspector);
   el('resume-button').addEventListener('click', resumeGame);
   el('game-menu-button').addEventListener('click', returnToMenu);

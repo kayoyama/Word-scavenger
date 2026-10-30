@@ -11,9 +11,7 @@ What changed
 
 Bag visualization
 - Open marble-bag-preview.html through VS Code Live Server to inspect the real engine.
-- Use “Draw next tile” to step through generation and inspect remaining entries and the latest draw path.
-- Use “Generate full board” to test the 5x5 safeguards.
-- Use “Reset bags and board” to start a fresh simulation.
+- The standalone preview page has been superseded by the integrated Pause Menu 3×3 Draw History in v3.08.2.
 
 Validation performed
 - JavaScript syntax checks passed for the Marble Bag engine and integration files.
@@ -38,7 +36,7 @@ Temporary live Marble Bag inspector update
 - Reads copied, read-only views of active in-memory bag entries; it does not use localStorage as the source of bag contents.
 - Displays exact remaining entries behind expandable lists, frequency counts, draw/replenishment counters, and the most recent letter/bonus draw path.
 - Explicitly reports when board balancing forced a category and bypassed the corresponding top-level bag or consonant subgroup selector.
-- The existing marble-bag-preview.html remains a separate snapshot diagnostics page.
+- The separate marble-bag-preview.html page has been retired from the packaged project in v3.08.2.
 - Automated Node test files were run after this update; all passed. Browser-based gameplay smoke testing was not performed in this environment.
 
 
@@ -71,3 +69,25 @@ v3.07.8 local vowel balancing (2026-10-30)
 - Added deterministic coverage for the five block definitions, overlapping center membership, initial board constraints, bounded fallback/bag accounting, and Randomize filtering.
 - JavaScript syntax checks and all six Node test suites pass. Browser visual and Android interaction tests remain pending.
 - Initial board creation additionally retries the complete board up to 12 times when any final 3×3 block falls outside the 2–6 range; each full-board retry resets all independent bags. After the bounded board retries, gameplay starts with the final generated board rather than hanging.
+
+v3.08.0 unified local balancing and preview update (2026-10-30)
+- Changed local vowel retry limit from 20 to 3.
+- Added center-first initial generation followed by top-left, top-right, bottom-left, and bottom-right regions; each region is attempted at most three times.
+- If a local region can only be satisfied by one letter category after ordinary retries, bypasses the top-level V/C selector and draws from the existing appropriate letter sub-bag. Global forced category rules retain priority.
+- Rejected candidate attempts restore bag entries, draw counters, replenishment counters, and last-draw metadata.
+- Bomb replacement tiles now use the same local balancing evaluator. Existing Bomb gravity/cascade and landing-bonus logic remain in game.js/game-logic.js.
+- Randomize continues to use the existing weighted sub-bag letter selection and preserves bonus metadata; Rotate and Swap remain no-draw operations; Wild Letter retains its special bypass.
+- Game diagnostic snapshots include initial draw history and the latest 30 balance decisions.
+- Marble Bag Preview now has three read-only tabs: Initial Draw Story, Recent Local Balance Story, and the existing Marble Preview. Effective letter probability calculation is unchanged.
+- Bumped the PWA cache to v16.
+- All six Node test suites pass. JavaScript syntax checks pass. A 1,000-seed initial-board simulation produced 0 incomplete boards, 0 global constraint failures, and 0 local constraint failures.
+- Browser visual and Android interaction testing were not performed in this environment; please smoke-test the preview tabs and game pause/resume workflow in Live Server.
+
+
+v3.08.2 — Integrated 3×3 draw history (2026-10-30)
+- Replaced the separate marble-bag-preview.html workflow with a native 3×3 Draw History panel inside the existing Pause Menu.
+- Initial Board Generation displays accepted/final region stages in generation order: center, top-left, top-right, bottom-left, bottom-right. Each card shows only the relevant 3×3 board snapshot and highlights positions drawn in that stage.
+- Recent Local Balance displays recent draw decisions as affected 3×3 region snapshots, highlighting the changed tile and showing concise event status. No per-letter draw log is shown.
+- Initial Board Generation and Recent Local Balance remain separate, simultaneously visible sections within the panel; neither uses a collapsible disclosure.
+- Removed marble-bag-preview.html from the delivered package and bumped the PWA cache to v17.
+- Automated JavaScript syntax and Node regression tests passed. Live browser visual and Android device verification remain pending.

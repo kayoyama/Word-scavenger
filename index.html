@@ -188,6 +188,12 @@
           <h2 id="pause-title">Take a breather</h2>
           <button id="resume-button" class="menu-button primary" type="button">Resume</button>
           <button id="bag-inspector-toggle" class="menu-button" type="button" aria-expanded="false">Inspect live Marble Bags</button>
+          <button id="marble-story-toggle" class="menu-button" type="button" aria-expanded="false">3×3 Draw History</button>
+          <section id="marble-story-panel" class="marble-story-panel" hidden aria-label="Initial board generation and recent local balance history">
+            <div class="marble-story-heading"><h3>3×3 Draw History</h3><button id="marble-story-close" class="small-button" type="button">Close</button></div>
+            <section class="draw-story-section" aria-labelledby="initial-draw-heading"><h4 id="initial-draw-heading">Initial Board Generation</h4><div id="initial-draw-stages" class="draw-story-grid"></div></section>
+            <section class="draw-story-section" aria-labelledby="recent-balance-heading"><h4 id="recent-balance-heading">Recent Local Balance</h4><div id="recent-local-stages" class="draw-story-grid"></div></section>
+          </section>
           <section id="bag-inspector" class="bag-inspector" hidden aria-label="Live Marble Bag diagnostics">
             <div class="bag-inspector-heading"><h3>Live Marble Bags</h3><button id="bag-inspector-refresh" type="button" class="small-button">Refresh view</button></div>
             <p class="bag-inspector-note">Read-only Board & Marble Bag preview. Probabilities are based on remaining entries; depleted bags replenish only when the next draw is requested. Opening this panel never draws, shuffles, or replenishes a bag.</p>

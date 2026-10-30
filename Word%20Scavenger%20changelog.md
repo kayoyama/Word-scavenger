@@ -1,3 +1,16 @@
+## [v3.08.1] - 2026-10-30
+
+### Changed
+- Added direct access to Marble Preview & Draw Stories inside the Pause Game menu.
+- Embedded the three-tab diagnostic experience in the paused game instead of requiring a separate page.
+- Initial Draw Story and Recent Local Balance Story now show an actual 3×3 region visualization when recorded board snapshots are available.
+- Newly drawn tiles, protected/shared tiles, and unchanged tiles have distinct visual treatments.
+- Added board snapshots and drawn/protected position metadata to generation and balancing diagnostic events.
+
+### Fixed
+- Opening the diagnostic panel refreshes its read-only snapshot without consuming or changing Marble Bag entries.
+- Closing the diagnostic panel and resuming or leaving the game correctly hides the embedded panel.
+
 ## 2026-10-21 — HUD layout correction (follow-up)
 
 ### Changed

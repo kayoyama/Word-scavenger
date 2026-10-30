@@ -44,3 +44,13 @@ If board balancing forces normal/bonus, the top-level bonus category bag is bypa
 ## Validation
 
 `tests/marble-bag.test.js` covers pool sizes, forced-draw bypass behavior, replenishment timing, board safeguards, Randomize return behavior, and Long Word Bonus weighting. Existing project regression tests should also be run after changes to the engine or game integration.
+
+
+## v3.08.0 unified local-balance update
+
+- Local 3×3 vowel validation uses at most 3 retries per replacement draw. Rejected candidates restore all bag entries, draw counters, replenishment counters, and last-draw metadata.
+- Initial board generation fills the center 3×3 first, then top-left, top-right, bottom-left, and bottom-right regions. Each region receives up to 3 attempts; if it remains invalid, the local constraint is relaxed for that region only.
+- Whole-board vowel/uncommon safeguards remain in `drawLetter` and retain their existing selector-bypass behavior. The existing vowel/consonant and common/uncommon sub-bags are still the source of forced draws.
+- Normal refills, Bomb replacement draws, and Randomize record balance decisions. Bomb no longer skips local validation. Rotate and Swap do not draw replacement letters; Wild Letter retains its special bypass.
+- Game snapshots now include the current round's initial draw story and the latest 30 balance decisions. The Pause Menu exposes an integrated read-only 3×3 Draw History with separate Initial Board Generation and Recent Local Balance sections. Each section shows 3×3 snapshots only; no standalone preview page or per-letter draw log is required. Effective letter probability calculations are unchanged.
+- Diagnostic history reads do not draw from or mutate bags.

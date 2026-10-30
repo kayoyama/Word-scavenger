@@ -22,7 +22,8 @@
   const MAX_LETTER_COPIES = 4;
   const LOCAL_VOWEL_MIN = 2;
   const LOCAL_VOWEL_MAX = 6;
-  const LOCAL_VOWEL_RETRY_LIMIT = 20;
+  const LOCAL_VOWEL_RETRY_LIMIT = 3;
+  const INITIAL_REGION_RETRY_LIMIT = 3;
   const LOCAL_VOWEL_BLOCKS = Object.freeze([
     Object.freeze([0, 1, 2, 5, 6, 7, 10, 11, 12]),       // top-left
     Object.freeze([2, 3, 4, 7, 8, 9, 12, 13, 14]),       // top-right
@@ -31,6 +32,8 @@
     Object.freeze([12, 13, 14, 17, 18, 19, 22, 23, 24])  // bottom-right
   ]);
   let localBalanceStats = { rejected: 0, relaxed: 0 };
+  let decisionHistory = [];
+  let initialDrawStory = [];
   // Editable category-selector distributions (counts per 25-tile board).
   const CATEGORY_DISTRIBUTION = Object.freeze({ vowel: 9, consonant: 16, common: 20, uncommon: 5, normalBonus: 18, bonusTile: 7 });
   const RANDOMIZE_MODE = Object.freeze({ WEIGHTED_BYPASS_CAP: 'weighted_bypass_cap', UNIFORM_ANY_LETTER: 'uniform_any_letter' });
@@ -87,6 +90,8 @@
     function reset() {
       lastDraw = { letter: null, bonus: null };
       localBalanceStats = { rejected: 0, relaxed: 0 };
+      decisionHistory = [];
+      initialDrawStory = [];
       bags = {
         letterCategory: createBag('letterCategory', () => [
           ...Array(CATEGORY_DISTRIBUTION.vowel).fill('V'), ...Array(CATEGORY_DISTRIBUTION.consonant).fill('C')
@@ -133,7 +138,7 @@
       return metrics;
     }
 
-    function drawLetter(board, targetIndex) {
+    function drawLetter(board, targetIndex, localForcedCategory = null) {
       const info = boardInfo(board, targetIndex);
       let category;
       let categorySource = 'category-bag';
@@ -143,6 +148,9 @@
       } else if (info.vowels + info.emptyAfterDraw < LETTER_MIN_VOWELS) {
         category = 'V'; // forced draw bypasses the top-level category bag
         categorySource = 'board-balance';
+      } else if (localForcedCategory === 'V' || localForcedCategory === 'C') {
+        category = localForcedCategory; // Local constraint bypasses only the top-level category bag; the existing sub-bag supplies the letter.
+        categorySource = 'local-balance';
       } else {
         category = bags.letterCategory.draw();
       }
@@ -212,6 +220,32 @@
       return type;
     }
 
+    function localCounts(board) {
+      return LOCAL_VOWEL_BLOCKS.map((block) => block.reduce((count, index) => {
+        const tile = board[index];
+        return count + (tile && !tile.isWildLetter && VOWELS.has(String(tile.letter || '').toUpperCase()) ? 1 : 0);
+      }, 0));
+    }
+
+    function globalCounts(board) {
+      const occupied = (Array.isArray(board) ? board : []).filter(Boolean);
+      return {
+        vowels: occupied.filter((tile) => !tile.isWildLetter && VOWELS.has(String(tile.letter || '').toUpperCase())).length,
+        uncommon: occupied.filter((tile) => Object.prototype.hasOwnProperty.call(UNCOMMON_COUNTS, String(tile.letter || '').toUpperCase())).length
+      };
+    }
+
+    function recordDecision(event) {
+      const item = { id: `${Date.now()}-${decisionHistory.length + 1}`, at: new Date().toISOString(), ...event };
+      decisionHistory.unshift(item);
+      if (decisionHistory.length > 30) decisionHistory.length = 30;
+      return item;
+    }
+
+    function cloneDiagnostic(value) { return JSON.parse(JSON.stringify(value)); }
+    function getRecentBalanceStory() { return cloneDiagnostic(decisionHistory); }
+    function getInitialDrawStory() { return cloneDiagnostic(initialDrawStory); }
+
     function isLocalBoardBalanced(board) {
       if (!Array.isArray(board) || board.length < 25) return false;
       return LOCAL_VOWEL_BLOCKS.every((block) => {
@@ -267,7 +301,7 @@
 
     function drawTileOnce(board, targetIndex, tileOptions = {}) {
       lastDraw = { letter: null, bonus: null };
-      const letter = drawLetter(board, targetIndex);
+      const letter = drawLetter(board, targetIndex, tileOptions.forcedLetterCategory || null);
       let bonus;
       if (Object.prototype.hasOwnProperty.call(tileOptions, 'bonusOverride')) {
         bonus = tileOptions.bonusOverride;
@@ -284,21 +318,109 @@
     }
 
     function generateTile(board, targetIndex, tileOptions = {}) {
-      if (tileOptions.skipLocalVowelBalance) return drawTileOnce(board, targetIndex, tileOptions);
-      if (!Array.isArray(board) || !Number.isInteger(targetIndex) || targetIndex < 0 || targetIndex >= 25) {
-        return drawTileOnce(board, targetIndex, tileOptions);
-      }
-      for (let attempt = 0; attempt < LOCAL_VOWEL_RETRY_LIMIT; attempt += 1) {
+      if (!Array.isArray(board) || !Number.isInteger(targetIndex) || targetIndex < 0 || targetIndex >= 25) return drawTileOnce(board, targetIndex, tileOptions);
+      const beforeCounts = globalCounts(board);
+      const beforeLocal = localCounts(board);
+      const affected = LOCAL_VOWEL_BLOCKS.map((block, index) => block.includes(targetIndex) ? index : -1).filter((index) => index >= 0);
+      const retryLimit = tileOptions.skipLocalVowelBalance ? 1 : LOCAL_VOWEL_RETRY_LIMIT;
+      let accepted = null;
+      let attempts = 0;
+      const rejectedCandidates = [];
+      for (; attempts < retryLimit; attempts += 1) {
         const before = snapshotBags();
         const tile = drawTileOnce(board, targetIndex, tileOptions);
-        if (localVowelConstraintAllows(board, targetIndex, tile.letter)) return tile;
+        if (tileOptions.skipLocalVowelBalance || localVowelConstraintAllows(board, targetIndex, tile.letter)) {
+          accepted = tile;
+          break;
+        }
         localBalanceStats.rejected += 1;
-        restoreBags(before); // Rejected candidates must not consume or discard any bag entries.
+        rejectedCandidates.push({ letter: tile.letter, reason: 'Would violate an affected 3×3 vowel constraint', affectedRegions: affected.slice() });
+        restoreBags(before);
       }
-      // The local constraint is a secondary safeguard. Relax it for this draw only
-      // after bounded retries; existing global balancing remains authoritative.
-      localBalanceStats.relaxed += 1;
-      return drawTileOnce(board, targetIndex, tileOptions);
+      let relaxed = false;
+      if (!accepted) {
+        const vowelCanFit = localVowelConstraintAllows(board, targetIndex, 'A');
+        const consonantCanFit = localVowelConstraintAllows(board, targetIndex, 'T');
+        if (vowelCanFit !== consonantCanFit) {
+          // Preserve the established bypass design: force V/C only at the category level,
+          // then draw from the existing vowel/common/uncommon sub-bag hierarchy.
+          accepted = drawTileOnce(board, targetIndex, { ...tileOptions, forcedLetterCategory: vowelCanFit ? 'V' : 'C' });
+          if (!localVowelConstraintAllows(board, targetIndex, accepted.letter)) {
+            relaxed = true;
+            localBalanceStats.relaxed += 1;
+          }
+        } else {
+          relaxed = true;
+          localBalanceStats.relaxed += 1;
+          accepted = drawTileOnce(board, targetIndex, tileOptions);
+        }
+      }
+      const projected = board.slice();
+      projected[targetIndex] = { letter: accepted.letter, bonus: accepted.bonus };
+      const afterCounts = globalCounts(projected);
+      const afterLocal = localCounts(projected);
+      const event = recordDecision({
+        operation: tileOptions.operation || 'refill', position: targetIndex,
+        affectedRegions: affected.map((index) => index + 1),
+        candidateLetters: rejectedCandidates.map((candidate) => candidate.letter), rejectedCandidates,
+        acceptedLetter: accepted.letter, bonus: accepted.bonus,
+        attempts: attempts + (relaxed ? 1 : 0), rejected: rejectedCandidates.length, relaxed,
+        globalBefore: beforeCounts, globalAfter: afterCounts,
+        localBefore: beforeLocal, localAfter: afterLocal,
+        draw: getLastDraw(),
+        boardSnapshot: projected.map((tile) => tile ? { letter: tile.letter, bonus: tile.bonus || 'NO' } : null)
+      });
+      if (tileOptions.initialGeneration) initialDrawStory.push({ ...event, sequence: initialDrawStory.length + 1, phase: tileOptions.phase || 'initial' });
+      return accepted;
+    }
+
+    function generateInitialBoard() {
+      reset();
+      const board = Array(25).fill(null);
+      const regions = [2, 0, 1, 3, 4]; // center, top-left, top-right, bottom-left, bottom-right
+      const regionNames = ['top-left', 'top-right', 'center', 'bottom-left', 'bottom-right'];
+      const generationPlan = [2, 0, 1, 3, 4];
+      const regionEvents = [];
+      for (const regionIndex of generationPlan) {
+        const block = LOCAL_VOWEL_BLOCKS[regionIndex];
+        let acceptedRegion = false;
+        for (let attempt = 1; attempt <= INITIAL_REGION_RETRY_LIMIT; attempt += 1) {
+          const bagSnapshot = snapshotBags();
+          const boardSnapshot = board.slice();
+          const missing = block.filter((index) => !board[index]);
+          missing.forEach((index) => {
+            board[index] = generateTile(board, index, { initialGeneration: true, phase: regionNames[regionIndex], operation: 'initial draw' });
+          });
+          const count = localCounts(board)[regionIndex];
+          const valid = count >= LOCAL_VOWEL_MIN && count <= LOCAL_VOWEL_MAX;
+          const regionEvent = { region: regionNames[regionIndex], attempt, positions: missing.slice(), vowelCount: count, accepted: valid };
+          regionEvents.push(regionEvent);
+          const storyEvent = { sequence: initialDrawStory.length + 1, at: new Date().toISOString(), operation: 'region attempt', phase: regionNames[regionIndex], ...regionEvent, boardSnapshot: board.map((tile) => tile ? { letter: tile.letter, bonus: tile.bonus || 'NO' } : null), protectedPositions: block.filter((index) => !missing.includes(index)) };
+          initialDrawStory.push(storyEvent);
+          recordDecision({ operation: 'initial region attempt', region: regionNames[regionIndex], attempts: attempt, localAfter: localCounts(board), relaxed: !valid && attempt === INITIAL_REGION_RETRY_LIMIT, rejected: valid ? 0 : 1, boardSnapshot: board.map((tile) => tile ? { letter: tile.letter, bonus: tile.bonus || 'NO' } : null), drawnPositions: missing.slice(), protectedPositions: block.filter((index) => !missing.includes(index)), accepted: valid });
+          if (valid || attempt === INITIAL_REGION_RETRY_LIMIT) {
+            if (!valid) {
+              localBalanceStats.relaxed += 1;
+              recordDecision({ operation: 'initial region relaxed', region: regionNames[regionIndex], attempts: attempt, vowelCount: count, relaxed: true });
+            }
+            acceptedRegion = true;
+            break;
+          }
+          restoreBags(bagSnapshot);
+          boardSnapshot.forEach((tile, index) => { board[index] = tile; });
+          // Keep rejected attempt history: bag state is restored, but the diagnostic event remains real.
+        }
+        if (!acceptedRegion) break;
+      }
+      const counts = globalCounts(board);
+      // Existing drawLetter forced/bypass rules keep global vowel and uncommon-consonant limits authoritative.
+      // If the staged region retries leave a global outlier, regenerate the last corner's exclusive cells only.
+      if (counts.vowels < LETTER_MIN_VOWELS || counts.vowels > LETTER_MAX_VOWELS || counts.uncommon < MIN_UNCOMMON_CONSONANTS || counts.uncommon > MAX_UNCOMMON_CONSONANTS) {
+        const lastRegion = LOCAL_VOWEL_BLOCKS[4];
+        const exclusive = lastRegion.filter((index) => !LOCAL_VOWEL_BLOCKS.slice(0, 4).some((other) => other.includes(index)));
+        exclusive.forEach((index) => { board[index] = generateTile(board, index, { initialGeneration: true, phase: 'global-correction', operation: 'global correction' }); });
+      }
+      return { board, regions: regionEvents, global: globalCounts(board), local: localCounts(board) };
     }
 
     function returnLetter(letter) {
@@ -318,30 +440,34 @@
     function drawRandomizeLetter(returnedLetter, mode = RANDOMIZE_MODE.WEIGHTED_BYPASS_CAP, board = null, targetIndex = -1) {
       const returned = String(returnedLetter || '').toUpperCase();
       const allCounts = { ...VOWEL_COUNTS, ...COMMON_COUNTS, ...UNCOMMON_COUNTS };
-      let candidates = Object.entries(allCounts).filter(([letter, count]) => letter !== returned && count > 0);
-      if (!candidates.length) throw new Error('No eligible replacement letter');
-      if (Array.isArray(board) && Number.isInteger(targetIndex) && targetIndex >= 0 && targetIndex < 25) {
-        const locallyValid = candidates.filter(([letter]) => localVowelConstraintAllows(board, targetIndex, letter));
-        if (locallyValid.length) candidates = locallyValid;
-        else localBalanceStats.relaxed += 1; // No valid replacement exists; relax only this action.
-      }
+      const allCandidates = Object.entries(allCounts).filter(([letter, count]) => letter !== returned && count > 0);
+      if (!allCandidates.length) throw new Error('No eligible replacement letter');
+      const localBefore = Array.isArray(board) ? localCounts(board) : [];
+      const valid = Array.isArray(board) && targetIndex >= 0
+        ? allCandidates.filter(([letter]) => localVowelConstraintAllows(board, targetIndex, letter)) : allCandidates;
+      const pool = valid.length ? valid : allCandidates;
+      if (!valid.length && Array.isArray(board) && targetIndex >= 0) localBalanceStats.relaxed += 1;
       let chosen;
       if (mode === RANDOMIZE_MODE.UNIFORM_ANY_LETTER) {
-        chosen = candidates[Math.floor(random() * candidates.length)][0];
+        chosen = pool[Math.floor(random() * pool.length)][0];
       } else {
-        const total = candidates.reduce((sum, [, count]) => sum + count, 0);
+        const total = pool.reduce((sum, [, count]) => sum + count, 0);
         let roll = random() * total;
-        chosen = candidates[candidates.length - 1][0];
-        for (const [letter, count] of candidates) { roll -= count; if (roll < 0) { chosen = letter; break; } }
+        chosen = pool[pool.length - 1][0];
+        for (const [letter, count] of pool) { roll -= count; if (roll < 0) { chosen = letter; break; } }
       }
-      // Consume one matching entry from its independent letter sub-bag so bag state
-      // remains coherent. This deliberately bypasses category selectors and the board soft cap.
       const bag = VOWELS.has(chosen) ? bags.vowelLetters
         : (Object.prototype.hasOwnProperty.call(COMMON_COUNTS, chosen) ? bags.commonLetters : bags.uncommonLetters);
       if (!bag.entries.length) bag.refill();
       let entryIndex = bag.entries.lastIndexOf(chosen);
       if (entryIndex < 0) { bag.refill(); entryIndex = bag.entries.lastIndexOf(chosen); }
       if (entryIndex >= 0) { bag.entries.splice(entryIndex, 1); bag.draws += 1; }
+      const projected = Array.isArray(board) ? board.slice() : [];
+      if (projected.length && targetIndex >= 0) projected[targetIndex] = { ...(projected[targetIndex] || {}), letter: chosen, isWildLetter: false };
+      recordDecision({ operation: 'randomize', position: targetIndex, affectedRegions: LOCAL_VOWEL_BLOCKS.map((b, i) => b.includes(targetIndex) ? i + 1 : null).filter(Boolean),
+        candidateLetters: pool.map(([letter]) => letter), acceptedLetter: chosen, attempts: 1, rejected: 0,
+        relaxed: !valid.length && Array.isArray(board), globalBefore: Array.isArray(board) ? globalCounts(board) : null,
+        globalAfter: Array.isArray(board) ? globalCounts(projected) : null, localBefore, localAfter: projected.length ? localCounts(projected) : [], boardSnapshot: projected.map((tile) => tile ? { letter: tile.letter, bonus: tile.bonus || 'NO' } : null), drawnPositions: [targetIndex] });
       return chosen;
     }
 
@@ -451,12 +577,12 @@
     }
 
     reset();
-    return Object.freeze({ reset, drawLetter, drawBonus, generateTile, returnLetter, previewLetter, drawRandomizeLetter, weightedBonus, upgradeBonus, getState, getLastDraw, getContents, getEffectiveProbabilities, getLocalBalanceStats, isLocalBoardBalanced });
+    return Object.freeze({ reset, drawLetter, drawBonus, generateTile, returnLetter, previewLetter, drawRandomizeLetter, weightedBonus, upgradeBonus, getState, getLastDraw, getContents, getEffectiveProbabilities, getLocalBalanceStats, getRecentBalanceStory, getInitialDrawStory, generateInitialBoard, isLocalBoardBalanced });
   }
 
   root.WordMarbleBag = Object.freeze({ createEngine, constants: Object.freeze({
     VOWEL_COUNTS, COMMON_COUNTS, UNCOMMON_COUNTS, BONUS_COUNTS, CATEGORY_DISTRIBUTION, RANDOMIZE_MODE,
-    LOCAL_VOWEL_MIN, LOCAL_VOWEL_MAX, LOCAL_VOWEL_RETRY_LIMIT, LOCAL_VOWEL_BLOCKS,
+    LOCAL_VOWEL_MIN, LOCAL_VOWEL_MAX, LOCAL_VOWEL_RETRY_LIMIT, INITIAL_REGION_RETRY_LIMIT, LOCAL_VOWEL_BLOCKS,
     LETTER_MIN_VOWELS, LETTER_MAX_VOWELS, MIN_UNCOMMON_CONSONANTS, MAX_UNCOMMON_CONSONANTS,
     MIN_BONUS_TILES, MAX_BONUS_TILES, MAX_LETTER_COPIES
   }) });

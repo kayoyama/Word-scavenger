@@ -149,3 +149,8 @@ These tests validate pure logic and source-level invariants. They do not substit
 - Added a soft maximum of four copies of any ordinary letter on the projected board; Wild Letters do not count toward this cap.
 - Main timer uses the length-based reward table in `SCORING-RULES.md`; Word Amplifier score multipliers remain unchanged.
 - Expanded the pause-screen read-only Board & Marble Bag preview with board composition, remaining-bag counts, and per-entry probabilities.
+
+
+## v3.08.0 balancing diagnostics
+
+The Pause Menu now includes an integrated 3×3 Draw History with separate, always-expanded Initial Board Generation and Recent Local Balance sections. Both sections show 3×3 snapshots only; no standalone preview page or per-letter draw log is used. Initial generation is center-first with up to three attempts per 3×3 region. Replacement draws use up to three local-validation attempts, restoring rejected bag state; if only one category can satisfy the local constraint, the existing V/C selector-bypass and matching letter sub-bag are used. Bomb replacement draws now use the same local-balance evaluator. Existing bag hierarchy, forced/bypass draws, effective probability calculations, and Wild Letter behavior are retained.
