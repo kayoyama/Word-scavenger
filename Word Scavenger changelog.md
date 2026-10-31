@@ -1,3 +1,48 @@
+## [3.08.5] - 2026-10-31
+
+### Added
+- Restored the original “Most recent draw decision” panel inside the existing Original Marble Bags Summary in the Pause Menu.
+- Displayed the last letter and bonus draw details, including their category/source fields and explanations of the actual draw paths.
+
+### Changed
+- Started from v3.08.4 Initial Draw Visuals and added only the missing last-draw decision container and its original rendering logic.
+- Kept the existing consolidated diagnostics and all other v3.08.4 behavior unchanged.
+- Bumped the PWA cache to v20.
+
+### Verification
+- JavaScript syntax checks and all six existing Node test files passed.
+- Confirmed no iframe or standalone preview references were added.
+- ZIP integrity verified. Live browser visual verification remains outstanding.
+
+## [3.08.4] - 2026-10-31
+
+### Changed
+- Restored the actual 3×3 letter snapshots for all five Initial Board Generation stages above the existing stage-level diagnostic metrics.
+- Highlighted tiles drawn during the current stage; tiles already present from earlier overlapping stages remain visually distinct.
+- Preserved each stage's vowel count, natural/forced draw totals, rejected candidates, attempt count, and validation result beneath its board snapshot.
+
+### Verification
+- JavaScript syntax checks and all six existing Node test files passed.
+- ZIP integrity verified. Live browser visual verification remains outstanding.
+
+## [3.08.3] - 2026-10-31
+
+### Fixed
+- Corrected the Pause Menu integration so all three Marble Bag diagnostic sections are present in the visible diagnostics panel: Initial Board Generation, Recent Local Balance, and the original Marble Bags Summary.
+- Added the missing DOM containers required by the existing initial-generation and latest-refill summary renderer.
+- Kept Recent Local Balance as one aggregate summary of the latest complete refill batch; each refilled tile is counted once while affected overlapping regions are counted distinctly.
+
+### Changed
+- Reorganized the diagnostics into three permanently visible sections within the single Pause Menu panel.
+- Clarified the original bag inspector heading as section 3 and retained its existing board inventory, effective probabilities, bag counts, and remaining-entry details.
+- Bumped the PWA cache from v17 to v18 so installed clients receive the corrected Pause Menu markup and styles.
+
+### Verification
+- JavaScript syntax checks passed for all project scripts.
+- All six existing Node test files passed.
+- Static markup checks confirmed all three section containers and the existing renderer targets are present.
+- ZIP integrity verified. Live browser visual verification remains outstanding.
+
 ## [v3.08.1] - 2026-10-30
 
 ### Changed
@@ -857,22 +902,3 @@ The history available for this update includes the changelog source, a Classic M
 ### Performance / Refactoring
 - Kept the existing Marble Bag hierarchy, forced selector-bypass draws, sub-bag availability behavior, effective probability calculation, and Wild Letter special behavior.
 - Bumped the PWA cache version so updated game and preview assets are refreshed.
-
-
-## v3.08.2 — 2026-10-30 — Integrated 3×3 draw history
-
-### Added
-- Added a native **3×3 Draw History** panel accessible from the existing Pause Menu.
-- Added **Initial Board Generation** stage cards in actual generation order: Center, Top-left, Top-right, Bottom-left, and Bottom-right. Each card shows the corresponding 3×3 snapshot, with newly drawn positions highlighted.
-- Added **Recent Local Balance** cards showing recent affected 3×3 regions after a draw, including the changed position and concise retry/relaxation status.
-
-### Changed
-- Replaced the separate `marble-bag-preview.html` iframe workflow with an integrated in-game view.
-- Kept Initial Board Generation and Recent Local Balance as separate, simultaneously visible sections. Neither section is collapsible.
-- The history displays 3×3 draw snapshots only; it does not expose a per-letter draw log.
-- Removed `marble-bag-preview.html` from the delivered project package and bumped the PWA cache version to v17.
-
-### Verification
-- JavaScript syntax checks passed for `js/game.js` and `js/marble-bag.js`.
-- All existing Node test suites passed, with an additional source-level test for the integrated draw-history UI.
-- Browser visual testing and Android device verification remain outstanding.

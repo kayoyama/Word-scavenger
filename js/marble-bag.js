@@ -34,6 +34,8 @@
   let localBalanceStats = { rejected: 0, relaxed: 0 };
   let decisionHistory = [];
   let initialDrawStory = [];
+  let activeBatchId = null;
+  let batchSequence = 0;
   // Editable category-selector distributions (counts per 25-tile board).
   const CATEGORY_DISTRIBUTION = Object.freeze({ vowel: 9, consonant: 16, common: 20, uncommon: 5, normalBonus: 18, bonusTile: 7 });
   const RANDOMIZE_MODE = Object.freeze({ WEIGHTED_BYPASS_CAP: 'weighted_bypass_cap', UNIFORM_ANY_LETTER: 'uniform_any_letter' });
@@ -92,6 +94,8 @@
       localBalanceStats = { rejected: 0, relaxed: 0 };
       decisionHistory = [];
       initialDrawStory = [];
+      activeBatchId = null;
+      batchSequence = 0;
       bags = {
         letterCategory: createBag('letterCategory', () => [
           ...Array(CATEGORY_DISTRIBUTION.vowel).fill('V'), ...Array(CATEGORY_DISTRIBUTION.consonant).fill('C')
@@ -236,12 +240,14 @@
     }
 
     function recordDecision(event) {
-      const item = { id: `${Date.now()}-${decisionHistory.length + 1}`, at: new Date().toISOString(), ...event };
+      const item = { id: `${Date.now()}-${decisionHistory.length + 1}`, at: new Date().toISOString(), ...(activeBatchId ? { batchId: activeBatchId } : {}), ...event };
       decisionHistory.unshift(item);
       if (decisionHistory.length > 30) decisionHistory.length = 30;
       return item;
     }
 
+    function beginDrawBatch() { activeBatchId = `batch-${Date.now()}-${++batchSequence}`; return activeBatchId; }
+    function endDrawBatch() { activeBatchId = null; }
     function cloneDiagnostic(value) { return JSON.parse(JSON.stringify(value)); }
     function getRecentBalanceStory() { return cloneDiagnostic(decisionHistory); }
     function getInitialDrawStory() { return cloneDiagnostic(initialDrawStory); }
@@ -364,7 +370,7 @@
         affectedRegions: affected.map((index) => index + 1),
         candidateLetters: rejectedCandidates.map((candidate) => candidate.letter), rejectedCandidates,
         acceptedLetter: accepted.letter, bonus: accepted.bonus,
-        attempts: attempts + (relaxed ? 1 : 0), rejected: rejectedCandidates.length, relaxed,
+        attempts: attempts + 1, rejected: rejectedCandidates.length, relaxed,
         globalBefore: beforeCounts, globalAfter: afterCounts,
         localBefore: beforeLocal, localAfter: afterLocal,
         draw: getLastDraw(),
@@ -577,7 +583,7 @@
     }
 
     reset();
-    return Object.freeze({ reset, drawLetter, drawBonus, generateTile, returnLetter, previewLetter, drawRandomizeLetter, weightedBonus, upgradeBonus, getState, getLastDraw, getContents, getEffectiveProbabilities, getLocalBalanceStats, getRecentBalanceStory, getInitialDrawStory, generateInitialBoard, isLocalBoardBalanced });
+    return Object.freeze({ reset, drawLetter, drawBonus, generateTile, returnLetter, previewLetter, drawRandomizeLetter, weightedBonus, upgradeBonus, getState, getLastDraw, getContents, getEffectiveProbabilities, getLocalBalanceStats, getRecentBalanceStory, getInitialDrawStory, generateInitialBoard, isLocalBoardBalanced, beginDrawBatch, endDrawBatch });
   }
 
   root.WordMarbleBag = Object.freeze({ createEngine, constants: Object.freeze({

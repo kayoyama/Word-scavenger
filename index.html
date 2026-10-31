@@ -187,18 +187,24 @@
           <p class="eyebrow">ROUND PAUSED</p>
           <h2 id="pause-title">Take a breather</h2>
           <button id="resume-button" class="menu-button primary" type="button">Resume</button>
-          <button id="bag-inspector-toggle" class="menu-button" type="button" aria-expanded="false">Inspect live Marble Bags</button>
-          <button id="marble-story-toggle" class="menu-button" type="button" aria-expanded="false">3×3 Draw History</button>
-          <section id="marble-story-panel" class="marble-story-panel" hidden aria-label="Initial board generation and recent local balance history">
-            <div class="marble-story-heading"><h3>3×3 Draw History</h3><button id="marble-story-close" class="small-button" type="button">Close</button></div>
-            <section class="draw-story-section" aria-labelledby="initial-draw-heading"><h4 id="initial-draw-heading">Initial Board Generation</h4><div id="initial-draw-stages" class="draw-story-grid"></div></section>
-            <section class="draw-story-section" aria-labelledby="recent-balance-heading"><h4 id="recent-balance-heading">Recent Local Balance</h4><div id="recent-local-stages" class="draw-story-grid"></div></section>
-          </section>
+          <button id="bag-inspector-toggle" class="menu-button" type="button" aria-expanded="false">Marble Bag Diagnostics</button>
           <section id="bag-inspector" class="bag-inspector" hidden aria-label="Live Marble Bag diagnostics">
-            <div class="bag-inspector-heading"><h3>Live Marble Bags</h3><button id="bag-inspector-refresh" type="button" class="small-button">Refresh view</button></div>
             <p class="bag-inspector-note">Read-only Board & Marble Bag preview. Probabilities are based on remaining entries; depleted bags replenish only when the next draw is requested. Opening this panel never draws, shuffles, or replenishes a bag.</p>
-            <div id="bag-inspector-board-summary" class="bag-inspector-board-summary"></div>
-            <div id="bag-inspector-last-draw" class="bag-inspector-last-draw"></div>
+            <section class="diagnostic-section" aria-labelledby="initial-draw-heading">
+              <h3 id="initial-draw-heading">1. Initial Board Generation</h3>
+              <p class="diagnostic-section-note">Five overlapping 3×3 generation stages. Counts summarize each stage; no per-letter history is shown.</p>
+              <div id="initial-draw-summary" class="diagnostic-summary"></div>
+            </section>
+            <section class="diagnostic-section" aria-labelledby="recent-balance-heading">
+              <h3 id="recent-balance-heading">2. Recent Local Balance</h3>
+              <p class="diagnostic-section-note">One aggregate summary of the latest complete refill operation, including every affected region.</p>
+              <div id="recent-balance-summary" class="diagnostic-summary"></div>
+            </section>
+            <section class="diagnostic-section" aria-labelledby="live-bags-heading">
+              <div class="bag-inspector-heading"><h3 id="live-bags-heading">3. Original Marble Bags Summary</h3><button id="bag-inspector-refresh" type="button" class="small-button">Refresh view</button></div>
+              <div id="bag-inspector-board-summary" class="bag-inspector-board-summary"></div>
+              <div id="bag-inspector-last-draw" class="bag-inspector-last-draw"></div>
+            </section>
             <div id="bag-inspector-content" class="bag-inspector-content"></div>
           </section>
           <button id="game-menu-button" class="menu-button" type="button">← Main Menu</button>

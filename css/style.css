@@ -958,24 +958,60 @@ body:not(.theme-style2) .wild-letter-tile {
 
 
 
-/* Integrated 3x3 draw history inside the Pause Menu */
-
-
-.marble-story-panel{margin-top:12px;padding:12px;border:1px solid rgba(70,150,255,.28);border-radius:16px;background:rgba(5,20,42,.96);max-height:min(74vh,780px);overflow:auto;text-align:left}
-.marble-story-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;color:var(--text-primary,#fff)}
+/* Embedded Marble Preview and generation stories inside Pause Game */
+.marble-story-panel{margin-top:12px;padding:12px;border:1px solid rgba(70,150,255,.28);border-radius:16px;background:rgba(5,20,42,.96);max-height:min(72vh,760px);overflow:hidden}
+.marble-story-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;color:var(--text-primary,#fff)}
 .marble-story-heading h3{margin:0;font-size:1rem}
-.pause-card:has(.marble-story-panel:not([hidden])){width:min(96vw,900px);max-width:900px;max-height:94vh;overflow:auto}
-.draw-story-section{margin:14px 0 18px}
-.draw-story-section h4{margin:0 0 9px;color:#ffdc5b;font-size:.95rem}
-.draw-story-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
-.draw-story-card{min-width:0;padding:10px;border:1px solid rgba(130,175,235,.28);border-radius:12px;background:rgba(13,39,72,.92)}
-.draw-story-card-heading{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;color:#f5f8ff;font-size:.78rem}
-.draw-story-card-heading span,.draw-story-detail{color:#b9cbe2;font-size:.7rem}
-.draw-story-board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;max-width:220px;margin:0 auto}
-.draw-story-cell{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;border:1px solid rgba(255,255,255,.24);border-radius:5px;background:#e8edf4;color:#12233b;font-size:1rem}
-.draw-story-cell strong{font-size:1.05rem;line-height:1.1}
-.draw-story-cell small{font-size:.48rem;font-weight:700;line-height:1.1}
-.draw-story-cell.is-drawn{outline:2px solid #ffdc5b;outline-offset:-2px;background:#ffe9a6;color:#17243a}
-.draw-story-detail{margin:8px 0 0;text-align:center}
-.draw-story-empty{margin:8px 0;color:#b9cbe2;font-size:.8rem}
-@media(max-width:600px){.marble-story-panel{padding:8px}.pause-card:has(.marble-story-panel:not([hidden])){width:96vw}.draw-story-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.marble-story-panel iframe{display:block;width:100%;height:min(65vh,680px);min-height:440px;border:0;border-radius:10px;background:#071b35}
+.pause-card:has(.marble-story-panel:not([hidden])){width:min(96vw,980px);max-width:980px;max-height:94vh;overflow:auto}
+@media(max-width:600px){.marble-story-panel{padding:7px}.marble-story-panel iframe{height:68vh;min-height:420px}.pause-card:has(.marble-story-panel:not([hidden])){width:96vw}}
+/* Consolidated in-pause Marble Bag diagnostics */
+.diagnostic-section{margin:14px 0;padding:12px;border:1px solid rgba(120,170,220,.28);border-radius:12px;background:rgba(3,17,36,.48)}
+.diagnostic-section h4{margin:0 0 10px;color:var(--text-primary,#fff)}
+.diagnostic-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px}
+.diagnostic-metric-card,.diagnostic-grid.compact>div{padding:10px;border-radius:9px;background:rgba(20,48,82,.72);border:1px solid rgba(120,170,220,.22)}
+.diagnostic-metric-card strong{display:block;text-transform:capitalize}
+.diagnostic-metric-line{display:flex;align-items:baseline;gap:6px;margin:5px 0}
+.diagnostic-metric-line b,.diagnostic-grid.compact b{font-size:1.35rem;color:var(--accent-gold,#ffd65a)}
+.diagnostic-metric-card p,.diagnostic-metric-card small,.diagnostic-footnote,.diagnostic-operation p{margin:4px 0;font-size:.78rem;color:#b9cce3;line-height:1.4}
+.diagnostic-grid.compact{grid-template-columns:repeat(3,minmax(0,1fr))}
+.diagnostic-grid.compact>div{display:flex;flex-direction:column;gap:3px}
+.diagnostic-grid.compact span{font-size:.72rem;color:#b9cce3}
+@media(max-width:520px){.diagnostic-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.diagnostic-grid.compact{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+
+/* Consolidated pause-menu diagnostics: all three sections stay visible together. */
+.diagnostic-section { margin: 14px 0; padding: 14px 0 4px; border-top: 1px solid rgba(120,170,220,.28); }
+.diagnostic-section > h3 { margin: 0 0 7px; font-size: 1rem; }
+.diagnostic-section-note { margin: 0 0 10px; color: #a9c6e8; font-size: .82rem; line-height: 1.45; }
+.diagnostic-summary { min-width: 0; }
+.diagnostic-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.diagnostic-metric-card { min-width: 0; padding: 11px; border: 1px solid rgba(120,170,220,.25); border-radius: 9px; background: rgba(14,37,65,.82); }
+.diagnostic-metric-card p, .diagnostic-metric-card small { display:block; margin: 5px 0 0; color:#a9c6e8; font-size:.78rem; line-height:1.4; }
+.diagnostic-metric-line { display:flex; align-items:baseline; gap:7px; margin-top:5px; }
+.diagnostic-metric-line b { font-size:1.35rem; }
+.diagnostic-metric-line span { color:#a9c6e8; font-size:.78rem; }
+.diagnostic-operation { padding:12px; border:1px solid rgba(120,170,220,.28); border-radius:9px; background:rgba(14,37,65,.72); }
+.diagnostic-grid.compact { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.diagnostic-grid.compact > div { padding:8px; border-radius:7px; background:rgba(28,55,86,.72); }
+.diagnostic-grid.compact b, .diagnostic-grid.compact span { display:block; }
+.diagnostic-grid.compact b { font-size:1.25rem; }
+.diagnostic-grid.compact span { color:#a9c6e8; font-size:.72rem; }
+.diagnostic-footnote { margin:8px 0 0; color:#a9c6e8; font-size:.75rem; line-height:1.4; }
+@media (max-width:560px) { .diagnostic-grid.compact { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+
+
+/* Initial generation snapshots: actual 3x3 letters above each stage's metrics. */
+.initial-draw-stages { display:grid; grid-template-columns:repeat(auto-fit,minmax(168px,1fr)); gap:10px; align-items:start; }
+.initial-draw-stage { min-width:0; padding:10px; border:1px solid rgba(120,170,220,.30); border-radius:10px; background:rgba(14,37,65,.78); }
+.initial-draw-stage-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:6px; margin-bottom:8px; font-size:.78rem; }
+.initial-draw-stage-heading span { color:#a9c6e8; white-space:nowrap; font-size:.72rem; }
+.initial-draw-board { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; }
+.initial-draw-tile { aspect-ratio:1; min-width:0; display:flex; flex-direction:column; justify-content:center; align-items:center; border-radius:6px; background:#e8eef7; color:#10243c; border:2px solid transparent; }
+.initial-draw-tile.is-new-draw { background:#ffe8a6; border-color:#ffc52e; }
+.initial-draw-tile strong { font-size:clamp(1rem,2vw,1.25rem); line-height:1; }
+.initial-draw-tile small { margin-top:3px; font-size:.48rem; font-weight:800; line-height:1; }
+.initial-draw-attempt { display:block; text-align:center; margin:7px 0 9px; color:#a9c6e8; font-size:.68rem; }
+.initial-draw-stage .diagnostic-metric-card { padding:8px; background:rgba(3,17,36,.42); }
+.initial-draw-stage .diagnostic-metric-line b { font-size:1.05rem; }
+@media(max-width:560px) { .initial-draw-stages { grid-template-columns:repeat(2,minmax(0,1fr)); } }
